@@ -216,10 +216,12 @@ func signalEditCmd() *cobra.Command {
 			if cmd.Flags().Changed("description") {
 				input.Description = &description
 			}
-			if cmd.Flags().Changed("person") {
+			// IDs must be positive; ignore a 0 so `--org 0`/`--person 0` can't write a
+			// dangling zero foreign key (matches how the MCP handlers guard IDs).
+			if cmd.Flags().Changed("person") && personID > 0 {
 				input.PersonID = &personID
 			}
-			if cmd.Flags().Changed("org") {
+			if cmd.Flags().Changed("org") && orgID > 0 {
 				input.OrgID = &orgID
 			}
 			if cmd.Flags().Changed("at") {
