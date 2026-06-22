@@ -2,6 +2,7 @@ package repo_test
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/Array-Ventures/gtm-crm/internal/db"
@@ -194,4 +195,87 @@ func TestSignalCreate_StoresSourceURL(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, found.SourceURL)
 	assert.Equal(t, url, *found.SourceURL)
+}
+
+func TestSignalCreate_DedupsOnSourceURL(t *testing.T) {
+	sr, _, _ := setupSignalTestDB(t)
+	ctx := context.Background()
+	url := "https://github.com/acme/repo"
+
+	first, err := sr.Create(ctx, model.CreateSignalInput{SignalType: "github", SourceURL: &url})
+	require.NoError(t, err)
+	second, err := sr.Create(ctx, model.CreateSignalInput{SignalType: "github", SourceURL: &url})
+	require.NoError(t, err)
+
+	assert.Equal(t, first.ID, second.ID, "same source_url must return the same signal")
+
+	all, err := sr.FindAll(ctx, model.SignalFilters{})
+	require.NoError(t, err)
+	assert.Len(t, all, 1, "no duplicate row")
+}
+
+func TestSignalCreate_DistinctSourceURLsCoexist(t *testing.T) {
+	sr, _, _ := setupSignalTestDB(t)
+	ctx := context.Background()
+	a, b := "https://github.com/acme/a", "https://github.com/acme/b"
+
+	_, err := sr.Create(ctx, model.CreateSignalInput{SignalType: "github", SourceURL: &a})
+	require.NoError(t, err)
+	_, err = sr.Create(ctx, model.CreateSignalInput{SignalType: "github", SourceURL: &b})
+	require.NoError(t, err)
+
+	all, err := sr.FindAll(ctx, model.SignalFilters{})
+	require.NoError(t, err)
+	assert.Len(t, all, 2)
+}
+
+func TestSignalCreate_NullSourceURLsDoNotCollide(t *testing.T) {
+	sr, _, _ := setupSignalTestDB(t)
+	ctx := context.Background()
+
+	_, err := sr.Create(ctx, model.CreateSignalInput{SignalType: "github"})
+	require.NoError(t, err)
+	_, err = sr.Create(ctx, model.CreateSignalInput{SignalType: "github"})
+	require.NoError(t, err)
+
+	all, err := sr.FindAll(ctx, model.SignalFilters{})
+	require.NoError(t, err)
+	assert.Len(t, all, 2, "NULL source_url never collides")
+}
+
+func TestSignalCreate_ArchivedDoesNotBlockReinsert(t *testing.T) {
+	sr, _, _ := setupSignalTestDB(t)
+	ctx := context.Background()
+	url := "https://github.com/acme/repo"
+
+	first, err := sr.Create(ctx, model.CreateSignalInput{SignalType: "github", SourceURL: &url})
+	require.NoError(t, err)
+	require.NoError(t, sr.Archive(ctx, first.ID))
+
+	second, err := sr.Create(ctx, model.CreateSignalInput{SignalType: "github", SourceURL: &url})
+	require.NoError(t, err)
+	assert.NotEqual(t, first.ID, second.ID, "archived row is excluded by the partial index")
+
+	all, err := sr.FindAll(ctx, model.SignalFilters{})
+	require.NoError(t, err)
+	assert.Len(t, all, 1, "only the live row is listed")
+}
+
+func TestSignalCreate_DedupAcrossConnections(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+	d1, err := db.Open(dbPath)
+	require.NoError(t, err)
+	defer d1.Close()
+	d2, err := db.Open(dbPath)
+	require.NoError(t, err)
+	defer d2.Close()
+
+	ctx := context.Background()
+	url := "https://github.com/acme/repo"
+	first, err := repo.NewSignalRepo(d1).Create(ctx, model.CreateSignalInput{SignalType: "github", SourceURL: &url})
+	require.NoError(t, err)
+	second, err := repo.NewSignalRepo(d2).Create(ctx, model.CreateSignalInput{SignalType: "github", SourceURL: &url})
+	require.NoError(t, err)
+
+	assert.Equal(t, first.ID, second.ID, "DB-enforced dedup holds across separate connections")
 }
