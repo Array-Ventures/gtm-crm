@@ -116,3 +116,35 @@ func TestSignalAddSourceURLDedups(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(list), &rows))
 	assert.Len(t, rows, 1)
 }
+
+func TestSignalEditLinksOrg(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+	crm(t, dbPath, "org", "add", "Acme AI", "-f", "json")                                                // org id 1
+	crm(t, dbPath, "signal", "add", "github", "--source-url", "https://github.com/acme/x", "-f", "json") // signal id 1, org-less
+
+	stdout, _, code := crm(t, dbPath, "signal", "edit", "1", "--org", "1", "-f", "json")
+	assert.Equal(t, 0, code)
+
+	var data []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(stdout), &data))
+	assert.Equal(t, float64(1), data[0]["org_id"], "signal should now be linked to org 1")
+}
+
+func TestSignalEditNotFound(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+	_, _, code := crm(t, dbPath, "signal", "edit", "999", "--org", "1")
+	assert.Equal(t, 3, code) // not found
+}
+
+func TestSignalEditIgnoresZeroOrg(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+	crm(t, dbPath, "signal", "add", "github", "--source-url", "https://github.com/acme/x", "-f", "json")
+
+	// --org 0 must be ignored (not written as a dangling zero FK); exit 0, org stays null.
+	stdout, _, code := crm(t, dbPath, "signal", "edit", "1", "--org", "0", "-f", "json")
+	assert.Equal(t, 0, code)
+
+	var data []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(stdout), &data))
+	assert.Nil(t, data[0]["org_id"], "--org 0 should leave the signal org-less")
+}
