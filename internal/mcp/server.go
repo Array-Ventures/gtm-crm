@@ -208,6 +208,7 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 			gomcp.WithDescription("Create a go-to-market signal about a person or organization"),
 			gomcp.WithString("signal_type", gomcp.Required(), gomcp.Description("Signal type, e.g. github, arxiv, jobs, funding")),
 			gomcp.WithString("description", gomcp.Description("What the signal is")),
+			gomcp.WithString("source_url", gomcp.Description("Canonical source URL (dedup key)")),
 			gomcp.WithNumber("person_id", gomcp.Description("Associated person ID")),
 			gomcp.WithNumber("org_id", gomcp.Description("Associated organization ID")),
 			gomcp.WithString("detected_at", gomcp.Description("When the signal was detected (ISO 8601; defaults to now)")),
@@ -774,6 +775,9 @@ func signalCreateHandler(sr *repo.SignalRepo) server.ToolHandlerFunc {
 		}
 		if at := req.GetString("detected_at", ""); at != "" {
 			input.DetectedAt = &at
+		}
+		if u := req.GetString("source_url", ""); u != "" {
+			input.SourceURL = &u
 		}
 
 		signal, err := sr.Create(ctx, input)
