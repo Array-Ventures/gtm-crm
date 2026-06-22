@@ -95,3 +95,24 @@ func TestSignalAddWithDetectedAt(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(stdout), &data))
 	assert.Equal(t, "2026-01-15 09:00:00", data[0]["detected_at"])
 }
+
+func TestSignalAddSourceURLDedups(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+	url := "https://github.com/acme/repo"
+
+	out1, _, code1 := crm(t, dbPath, "signal", "add", "github", "--source-url", url, "-f", "json")
+	assert.Equal(t, 0, code1)
+	out2, _, code2 := crm(t, dbPath, "signal", "add", "github", "--source-url", url, "-f", "json")
+	assert.Equal(t, 0, code2)
+
+	var a, b []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out1), &a))
+	require.NoError(t, json.Unmarshal([]byte(out2), &b))
+	assert.Equal(t, url, a[0]["source_url"])
+	assert.Equal(t, a[0]["id"], b[0]["id"], "same source_url returns the same signal id")
+
+	list, _, _ := crm(t, dbPath, "signal", "list", "-f", "json")
+	var rows []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(list), &rows))
+	assert.Len(t, rows, 1)
+}
