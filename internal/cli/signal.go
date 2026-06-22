@@ -81,15 +81,13 @@ func signalAddCmd() *cobra.Command {
 			input := model.CreateSignalInput{
 				SignalType:  args[0],
 				Description: nilIfEmpty(description),
+				DetectedAt:  nilIfEmpty(detectedAt),
 			}
 			if cmd.Flags().Changed("person") {
 				input.PersonID = &personID
 			}
 			if cmd.Flags().Changed("org") {
 				input.OrgID = &orgID
-			}
-			if cmd.Flags().Changed("at") {
-				input.DetectedAt = &detectedAt
 			}
 
 			r := repo.NewSignalRepo(db)

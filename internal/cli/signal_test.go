@@ -72,3 +72,26 @@ func TestSignalDelete(t *testing.T) {
 	_, _, code = crm(t, dbPath, "signal", "show", "1")
 	assert.Equal(t, 3, code) // not found
 }
+
+func TestSignalAddEmptyAtUsesDefault(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+
+	stdout, _, code := crm(t, dbPath, "signal", "add", "github", "--at", "", "-f", "json")
+	assert.Equal(t, 0, code)
+
+	var data []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(stdout), &data))
+	// An empty --at must fall through to the NOT NULL default, not store "".
+	assert.NotEmpty(t, data[0]["detected_at"])
+}
+
+func TestSignalAddWithDetectedAt(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+
+	stdout, _, code := crm(t, dbPath, "signal", "add", "funding", "--at", "2026-01-15 09:00:00", "-f", "json")
+	assert.Equal(t, 0, code)
+
+	var data []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(stdout), &data))
+	assert.Equal(t, "2026-01-15 09:00:00", data[0]["detected_at"])
+}
