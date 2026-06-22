@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/Array-Ventures/gtm-crm/internal/model"
+	"github.com/google/uuid"
 )
 
 // TaskRepo handles task database operations.
