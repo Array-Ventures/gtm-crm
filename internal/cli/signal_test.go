@@ -116,3 +116,16 @@ func TestSignalAddSourceURLDedups(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(list), &rows))
 	assert.Len(t, rows, 1)
 }
+
+func TestSignalEditLinksOrg(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+	crm(t, dbPath, "org", "add", "Acme AI", "-f", "json")                                                // org id 1
+	crm(t, dbPath, "signal", "add", "github", "--source-url", "https://github.com/acme/x", "-f", "json") // signal id 1, org-less
+
+	stdout, _, code := crm(t, dbPath, "signal", "edit", "1", "--org", "1", "-f", "json")
+	assert.Equal(t, 0, code)
+
+	var data []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(stdout), &data))
+	assert.Equal(t, float64(1), data[0]["org_id"], "signal should now be linked to org 1")
+}

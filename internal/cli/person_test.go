@@ -194,3 +194,16 @@ func TestPersonInvalidID(t *testing.T) {
 	assert.Equal(t, 2, code)
 	assert.Contains(t, stderr, "invalid person ID")
 }
+
+func TestPersonEditSummary(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+	crm(t, dbPath, "person", "add", "Jane", "-f", "json") // id 1
+
+	_, _, code := crm(t, dbPath, "person", "edit", "1", "--summary", "Prefers async; Q3 budget", "-f", "json")
+	assert.Equal(t, 0, code)
+
+	stdout, _, _ := crm(t, dbPath, "person", "show", "1", "-f", "json")
+	var data []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(stdout), &data))
+	assert.Equal(t, "Prefers async; Q3 budget", data[0]["summary"], "summary should be set via person edit --summary")
+}

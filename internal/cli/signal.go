@@ -62,6 +62,7 @@ func registerSignalCommands(rootCmd *cobra.Command) {
 	signalCmd.AddCommand(signalAddCmd())
 	signalCmd.AddCommand(signalListCmd())
 	signalCmd.AddCommand(signalShowCmd())
+	signalCmd.AddCommand(signalEditCmd())
 	signalCmd.AddCommand(signalDeleteCmd())
 
 	rootCmd.AddCommand(signalCmd)
@@ -186,6 +187,63 @@ func signalShowCmd() *cobra.Command {
 			return format.Output(os.Stdout, resolveFormat(), data, signalColumns, flagQuiet)
 		},
 	}
+}
+
+func signalEditCmd() *cobra.Command {
+	var signalType, description, detectedAt string
+	var personID, orgID int64
+
+	cmd := &cobra.Command{
+		Use:   "edit <id>",
+		Short: "Edit a signal (e.g. link it to an organization)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil {
+				return model.NewExitError(model.ErrValidation, "invalid signal ID: %s", args[0])
+			}
+
+			db, err := openDB()
+			if err != nil {
+				return err
+			}
+			defer db.Close()
+
+			input := model.UpdateSignalInput{}
+			if cmd.Flags().Changed("type") {
+				input.SignalType = &signalType
+			}
+			if cmd.Flags().Changed("description") {
+				input.Description = &description
+			}
+			if cmd.Flags().Changed("person") {
+				input.PersonID = &personID
+			}
+			if cmd.Flags().Changed("org") {
+				input.OrgID = &orgID
+			}
+			if cmd.Flags().Changed("at") {
+				input.DetectedAt = &detectedAt
+			}
+
+			r := repo.NewSignalRepo(db)
+			signal, err := r.Update(cmd.Context(), id, input)
+			if err != nil {
+				return err
+			}
+
+			data := []map[string]any{signalToMap(signal)}
+			return format.Output(os.Stdout, resolveFormat(), data, signalColumns, flagQuiet)
+		},
+	}
+
+	cmd.Flags().StringVar(&signalType, "type", "", "signal type")
+	cmd.Flags().StringVar(&description, "description", "", "what the signal is")
+	cmd.Flags().Int64Var(&personID, "person", 0, "associated person ID")
+	cmd.Flags().Int64Var(&orgID, "org", 0, "associated organization ID")
+	cmd.Flags().StringVar(&detectedAt, "at", "", "when the signal was detected (ISO 8601)")
+
+	return cmd
 }
 
 func signalDeleteCmd() *cobra.Command {

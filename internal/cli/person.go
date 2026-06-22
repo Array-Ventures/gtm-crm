@@ -204,7 +204,7 @@ func personShowCmd() *cobra.Command {
 }
 
 func personEditCmd() *cobra.Command {
-	var firstName, lastName, email, phone, title, company, location, notes string
+	var firstName, lastName, email, phone, title, company, location, notes, summary string
 	var orgID int64
 
 	cmd := &cobra.Command{
@@ -248,6 +248,9 @@ func personEditCmd() *cobra.Command {
 			if cmd.Flags().Changed("notes") {
 				input.Notes = &notes
 			}
+			if cmd.Flags().Changed("summary") {
+				input.Summary = &summary
+			}
 			if cmd.Flags().Changed("org") {
 				input.OrgID = &orgID
 			}
@@ -271,6 +274,7 @@ func personEditCmd() *cobra.Command {
 	cmd.Flags().StringVar(&company, "company", "", "company name")
 	cmd.Flags().StringVar(&location, "location", "", "location")
 	cmd.Flags().StringVar(&notes, "notes", "", "notes")
+	cmd.Flags().StringVar(&summary, "summary", "", "AI-maintained summary/dossier")
 	cmd.Flags().Int64Var(&orgID, "org", 0, "organization ID")
 
 	return cmd

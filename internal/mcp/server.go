@@ -227,6 +227,19 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 		signalListHandler(sr),
 	)
 
+	s.AddTool(
+		gomcp.NewTool("crm_signal_update",
+			gomcp.WithDescription("Update a signal — e.g. link it to an organization or person"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Signal ID")),
+			gomcp.WithString("signal_type", gomcp.Description("Signal type")),
+			gomcp.WithString("description", gomcp.Description("What the signal is")),
+			gomcp.WithNumber("person_id", gomcp.Description("Associated person ID")),
+			gomcp.WithNumber("org_id", gomcp.Description("Associated organization ID")),
+			gomcp.WithString("detected_at", gomcp.Description("When the signal was detected (ISO 8601)")),
+		),
+		signalUpdateHandler(sr),
+	)
+
 	// Tag tools
 	s.AddTool(
 		gomcp.NewTool("crm_tag_apply",
@@ -808,6 +821,38 @@ func signalListHandler(sr *repo.SignalRepo) server.ToolHandlerFunc {
 			return mcpError(err)
 		}
 		return jsonResult(signals)
+	}
+}
+
+func signalUpdateHandler(sr *repo.SignalRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		args := req.GetArguments()
+		input := model.UpdateSignalInput{}
+		if s, ok := argString(args, "signal_type"); ok {
+			input.SignalType = &s
+		}
+		if s, ok := argString(args, "description"); ok {
+			input.Description = &s
+		}
+		if pid, ok := argInt64(args, "person_id"); ok {
+			input.PersonID = &pid
+		}
+		if oid, ok := argInt64(args, "org_id"); ok {
+			input.OrgID = &oid
+		}
+		if s, ok := argString(args, "detected_at"); ok {
+			input.DetectedAt = &s
+		}
+
+		signal, err := sr.Update(ctx, id, input)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(signal)
 	}
 }
 
