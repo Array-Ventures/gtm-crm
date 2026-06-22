@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>crm — your contacts, in your terminal</title>
+  <meta name="description" content="A local-first personal CRM for the terminal. Manage contacts, organizations, interactions, deals, and tasks from the command line. Built-in AI integration via MCP.">
+  <meta property="og:title" content="crm — your contacts, in your terminal">
+  <meta property="og:description" content="A local-first personal CRM for the terminal. Single binary. SQLite. No cloud.">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #F7F8F6;
+      --bg-card: #FFFFFF;
+      --primary: #080030;
+      --accent: #FC5734;
+      --text: #080030;
+      --text-secondary: #4A4A5A;
+      --border: #E4E5E2;
+      --code-bg: #0D0B1A;
+      --code-text: #E8E6F0;
+      --code-comment: #6B6889;
+      --code-string: #FC5734;
+      --code-keyword: #A78BFA;
+      --max-width: 1080px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Nav */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: rgba(247, 248, 246, 0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    nav .nav-inner {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 2rem;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    nav .logo {
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--primary);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    nav .logo span {
+      color: var(--accent);
+    }
+
+    nav .nav-links {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      list-style: none;
+    }
+
+    nav .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    nav .nav-links a:hover { color: var(--primary); }
+
+    nav .nav-links .gh-link {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* Hero */
+    .hero {
+      padding: 10rem 2rem 6rem;
+      max-width: var(--max-width);
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .hero .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 1rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+    }
+
+    .hero .badge .dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 .accent { color: var(--accent); }
+
+    .hero .subtitle {
+      font-size: 1.2rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto 3rem;
+      line-height: 1.7;
+    }
+
+    .hero .ctas {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.85rem 1.75rem;
+      border-radius: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #1a1050;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--primary);
+      transform: translateY(-1px);
+    }
+
+    /* Install */
+    .install-snippet {
+      max-width: 520px;
+      margin: 3rem auto 0;
+      background: var(--code-bg);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .install-snippet code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--code-text);
+    }
+
+    .install-snippet .prefix { color: var(--code-comment); }
+    .install-snippet .cmd { color: var(--code-string); }
+
+    .install-snippet button {
+      background: transparent;
+      border: none;
+      color: var(--code-comment);
+      cursor: pointer;
+      padding: 0.25rem;
+      transition: color 0.2s;
+      flex-shrink: 0;
+    }
+
+    .install-snippet button:hover { color: var(--code-text); }
+
+    /* Sections */
+    section {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 6rem 2rem;
+    }
+
+    .section-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+    }
+
+    .section-desc {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      max-width: 560px;
+      line-height: 1.7;
+      margin-bottom: 3rem;
+    }
+
+    /* Features grid */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.75rem;
+      transition: border-color 0.2s;
+    }
+
+    .feature-card:hover { border-color: var(--accent); }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      background: #F0EFF5;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+
+    .feature-card h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-card p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Code blocks */
+    .code-block {
+      background: var(--code-bg);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid #1E1A2E;
+    }
+
+    .code-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #2A2640;
+    }
+
+    .code-body {
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+
+    .code-body pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.8;
+      color: var(--code-text);
+    }
+
+    .code-body .comment { color: var(--code-comment); }
+    .code-body .string { color: var(--code-string); }
+    .code-body .keyword { color: var(--code-keyword); }
+    .code-body .flag { color: #7DD3FC; }
+
+    /* How it works */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+      counter-reset: step;
+    }
+
+    .step {
+      counter-increment: step;
+      position: relative;
+      padding-left: 3.5rem;
+    }
+
+    .step::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 2.5rem;
+      height: 2.5rem;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .step h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .step p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* MCP section */
+    .mcp-section {
+      background: var(--primary);
+      color: #fff;
+      border-radius: 20px;
+      padding: 4rem;
+      margin: 0 2rem;
+      max-width: calc(var(--max-width) - 4rem);
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .mcp-section .section-label { color: var(--accent); }
+    .mcp-section .section-title { color: #fff; }
+    .mcp-section .section-desc { color: #B0ADC0; }
+
+    .mcp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: start;
+    }
+
+    .mcp-tools {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.4rem 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .mcp-tools { grid-template-columns: 1fr; }
+    }
+
+    .mcp-tool {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid #1E1A40;
+    }
+
+    .mcp-tool code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    .mcp-tool span {
+      font-size: 0.85rem;
+      color: #B0ADC0;
+    }
+
+    .mcp-example {
+      background: #0D0B1A;
+      border-radius: 12px;
+      padding: 2rem;
+    }
+
+    .mcp-example p {
+      font-size: 0.9rem;
+      color: #B0ADC0;
+      margin-bottom: 1rem;
+      line-height: 1.6;
+    }
+
+    .mcp-example .quote {
+      color: #E8E6F0;
+      font-style: italic;
+      border-left: 3px solid var(--accent);
+      padding-left: 1rem;
+      margin: 1.5rem 0;
+    }
+
+    .mcp-example ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .mcp-example li {
+      font-size: 0.85rem;
+      color: #B0ADC0;
+      padding: 0.4rem 0;
+      padding-left: 1.5rem;
+      position: relative;
+    }
+
+    .mcp-example li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.85rem;
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    /* Principles */
+    .principles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .principle {
+      text-align: center;
+      padding: 2rem 1.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .principle .icon {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .principle h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .principle p {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Use cases tabs */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      padding: 0.6rem 1.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .chat {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .chat-header .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .chat-header span {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .chat-body {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .chat-msg {
+      display: flex;
+      gap: 0.75rem;
+      max-width: 85%;
+    }
+
+    .chat-msg.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .chat-msg .bubble {
+      padding: 0.85rem 1.15rem;
+      border-radius: 14px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .chat-msg.user .bubble {
+      background: var(--primary);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .chat-msg.assistant .bubble {
+      background: #F0EFF5;
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+    }
+
+    .chat-msg .bubble .tool-call {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: rgba(252, 87, 52, 0.1);
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      margin: 0.25rem 0.15rem;
+    }
+
+    .chat-msg.assistant .bubble .tool-call {
+      background: rgba(252, 87, 52, 0.08);
+    }
+
+    .chat-scenario {
+      margin-bottom: 1.5rem;
+    }
+
+    .chat-scenario h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+
+    .chat-scenario p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* FAQ */
+    .faq-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
+      gap: 1.25rem;
+    }
+
+    .faq-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.75rem;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .faq-item h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .faq-item p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .faq-item a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .faq-item a:hover { text-decoration: underline; }
+
+    .faq-item p {
+      word-break: break-word;
+    }
+
+    .faq-item code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      background: #F0EFF5;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      word-break: break-all;
+    }
+
+    @media (max-width: 768px) {
+      .faq-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Dark sections */
+    .section-dark {
+      background: var(--primary);
+      color: #fff;
+      padding: 6rem 0;
+      margin: 0;
+      max-width: none;
+    }
+
+    .section-dark .section-inner {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    .section-dark .section-label { color: var(--accent); }
+    .section-dark .section-title { color: #fff; }
+    .section-dark .section-desc { color: #B0ADC0; }
+
+    .section-dark .feature-card {
+      background: #110E24;
+      border-color: #1E1A40;
+    }
+
+    .section-dark .feature-card:hover { border-color: var(--accent); }
+    .section-dark .feature-card p { color: #B0ADC0; }
+    .section-dark .feature-card h3 { color: #fff; }
+    .section-dark .feature-icon { background: #1E1A40; }
+
+    .section-dark .step::before {
+      background: var(--accent);
+    }
+
+    .section-dark .step h3 { color: #fff; }
+    .section-dark .step p { color: #B0ADC0; }
+    .section-dark .step code {
+      background: #1E1A40;
+      color: #E8E6F0;
+      padding: 0.1rem 0.35rem;
+      border-radius: 3px;
+    }
+    .section-dark .step a { color: var(--accent); }
+
+    .section-dark .principle {
+      background: #110E24;
+      border-color: #1E1A40;
+    }
+
+    .section-dark .principle h3 { color: #fff; }
+    .section-dark .principle p { color: #B0ADC0; }
+
+    .section-dark .tab-btn {
+      background: #110E24;
+      border-color: #1E1A40;
+      color: #B0ADC0;
+    }
+
+    .section-dark .tab-btn:hover {
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .section-dark .tab-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .section-dark .chat {
+      background: #110E24;
+      border-color: #1E1A40;
+    }
+
+    .section-dark .chat-header {
+      border-color: #1E1A40;
+    }
+
+    .section-dark .chat-header span { color: #fff; }
+
+    .section-dark .chat-msg.user .bubble {
+      background: var(--accent);
+    }
+
+    .section-dark .chat-msg.assistant .bubble {
+      background: #1E1A40;
+      color: #E8E6F0;
+    }
+
+    .section-dark .chat-scenario h3 { color: #fff; }
+    .section-dark .chat-scenario p { color: #B0ADC0; }
+
+    .section-dark .faq-item {
+      background: #110E24;
+      border-color: #1E1A40;
+    }
+
+    .section-dark .faq-item h3 { color: #fff; }
+    .section-dark .faq-item p { color: #B0ADC0; }
+
+    .section-dark .faq-item code {
+      background: #1E1A40;
+      color: #E8E6F0;
+    }
+
+    @media (max-width: 768px) {
+      .section-dark { padding: 4rem 0; }
+    }
+
+    /* Footer */
+    footer {
+      background: var(--primary);
+      border-top: 1px solid #1E1A40;
+      padding: 3rem 2rem;
+    }
+
+    footer .footer-inner {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    footer p {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    footer a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: color 0.2s;
+    }
+
+    footer a:hover { color: var(--primary); }
+
+    footer .footer-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      nav .nav-links { display: none; }
+
+      .hero { padding: 8rem 1.5rem 4rem; }
+
+      section { padding: 4rem 1.5rem; }
+
+      #ai {
+        background: var(--primary);
+        padding: 4rem 1.5rem;
+      }
+
+      .mcp-section {
+        border-radius: 0;
+        margin: 0;
+        padding: 0;
+        max-width: none;
+        background: transparent;
+        border: none;
+      }
+
+      .mcp-grid { grid-template-columns: 1fr; }
+
+      .install-snippet { flex-direction: column; align-items: flex-start; }
+
+      footer .footer-inner { flex-direction: column; text-align: center; }
+      footer .footer-links { justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav>
+    <div class="nav-inner">
+      <a href="#" class="logo"><span>crm</span>-cli</a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#quickstart">Quickstart</a></li>
+        <li><a href="#ai">AI</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="https://github.com/Array-Ventures/gtm-crm" class="gh-link">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="badge">
+      <span class="dot"></span>
+      Open source &middot; MIT License
+    </div>
+    <h1>Your contacts,<br>in your <span class="accent">terminal</span>.</h1>
+    <p class="subtitle">
+      A local-first personal CRM that lives in the command line. Manage contacts, organizations, interactions, deals, and tasks. Built-in AI integration. No cloud required.
+    </p>
+    <div class="ctas">
+      <a href="#quickstart" class="btn btn-primary">Get Started</a>
+      <a href="https://github.com/Array-Ventures/gtm-crm" class="btn btn-secondary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+    <div class="install-snippet">
+      <code><span class="prefix">$</span> <span class="cmd">brew install jdanielnd/tap/crm</span></code>
+      <button onclick="navigator.clipboard.writeText('brew install jdanielnd/tap/crm')" title="Copy to clipboard">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <section id="features">
+    <p class="section-label">Features</p>
+    <h2 class="section-title">Everything you need.<br>Nothing you don't.</h2>
+    <p class="section-desc">
+      A complete CRM in a single binary. No sign-ups, no subscriptions, no data leaving your machine.
+    </p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F464;</div>
+        <h3>People & Organizations</h3>
+        <p>Full contact profiles linked to companies. Track names, emails, phones, titles, locations, and custom notes.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4AC;</div>
+        <h3>Interaction Log</h3>
+        <p>Record calls, emails, meetings, notes, and messages. Track direction, timestamps, and link to multiple contacts.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4B0;</div>
+        <h3>Deals & Pipeline</h3>
+        <p>Manage opportunities through stages from lead to won. Track values, associated contacts, and view pipeline summaries.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x2705;</div>
+        <h3>Tasks & Follow-ups</h3>
+        <p>Create tasks with due dates, priorities, and person associations. Filter by overdue, completed, or open status.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F50D;</div>
+        <h3>Full-Text Search</h3>
+        <p>Find anything instantly across all entities. Powered by SQLite FTS5 for sub-millisecond search on local data.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F916;</div>
+        <h3>AI Integration</h3>
+        <p>Built-in MCP server lets Claude and other AI agents read and update your CRM through a structured protocol.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F3F7;</div>
+        <h3>Tags & Relationships</h3>
+        <p>Flexible tagging on any entity. Person-to-person relationships like colleague, mentor, or referred-by.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4CB;</div>
+        <h3>Context Briefing</h3>
+        <p>One command to get everything about a contact: profile, org, interactions, deals, tasks, tags, and relationships.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4E4;</div>
+        <h3>Multiple Output Formats</h3>
+        <p>Table, JSON, CSV, or TSV. Pipe into jq, fzf, awk, or anything else. Unix-native by design.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quickstart -->
+  <section id="quickstart" class="section-dark">
+    <div class="section-inner">
+    <p class="section-label">Quickstart</p>
+    <h2 class="section-title">Up and running in 30 seconds.</h2>
+    <p class="section-desc">
+      Install, add a contact, and you're done. No configuration, no setup wizard, no account creation.
+    </p>
+    <div class="steps">
+      <div class="step">
+        <h3>Install</h3>
+        <p>Run <code>brew install jdanielnd/tap/crm</code> via <a href="https://brew.sh" style="color: var(--accent);">Homebrew</a>. Or use <code>go install</code>, or download a binary from <a href="https://github.com/Array-Ventures/gtm-crm/releases" style="color: var(--accent);">Releases</a>.</p>
+      </div>
+      <div class="step">
+        <h3>Add your first contact</h3>
+        <p>Run <code>crm person add "Jane Smith"</code> and you're in business. The database is auto-created at <code>~/.crm/crm.db</code>.</p>
+      </div>
+      <div class="step">
+        <h3>Start tracking</h3>
+        <p>Log interactions, create deals, set tasks. Everything stays local in a single SQLite file you own.</p>
+      </div>
+    </div>
+
+    <div class="code-block" style="margin-top: 3rem;">
+      <div class="code-header">
+        <span class="code-dot"></span>
+        <span class="code-dot"></span>
+        <span class="code-dot"></span>
+      </div>
+      <div class="code-body">
+<pre><span class="comment"># Add a company and a contact</span>
+$ crm org add <span class="string">"Acme Corp"</span> <span class="flag">--domain</span> acme.com
+<span class="keyword">Created organization #1: Acme Corp</span>
+
+$ crm person add <span class="string">"Jane Smith"</span> <span class="flag">--email</span> jane@acme.com <span class="flag">--title</span> <span class="string">"CTO"</span> <span class="flag">--org</span> 1
+<span class="keyword">Created person #1: Jane Smith</span>
+
+<span class="comment"># Log an interaction</span>
+$ crm log call 1 <span class="flag">--subject</span> <span class="string">"Intro call — discussed roadmap"</span>
+<span class="keyword">Logged call #1 with Jane Smith</span>
+
+<span class="comment"># Create a deal</span>
+$ crm deal add <span class="string">"Website Redesign"</span> <span class="flag">--value</span> 15000 <span class="flag">--person</span> 1 <span class="flag">--stage</span> proposal
+<span class="keyword">Created deal #1: Website Redesign</span>
+
+<span class="comment"># Get a full briefing before your next meeting</span>
+$ crm context 1</pre>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- AI / MCP -->
+  <section id="ai" style="padding-bottom: 3rem;">
+    <div class="mcp-section">
+      <div>
+        <p class="section-label">AI Integration</p>
+        <h2 class="section-title">Let AI manage your CRM.</h2>
+        <p class="section-desc">
+          crm ships with a built-in MCP server. Connect it to Claude or any MCP-compatible agent and let AI handle the busywork. Two steps:
+        </p>
+      </div>
+      <div class="mcp-grid">
+        <div>
+          <h3 style="color: #fff; font-size: 1rem; margin-bottom: 0.75rem;">1. Install crm-cli</h3>
+          <p style="color: #B0ADC0; font-size: 0.9rem; margin-bottom: 0.75rem;">If you haven't already, install via Homebrew or any other method from the <a href="#quickstart" style="color: var(--accent);">quickstart</a>.</p>
+          <div class="install-snippet" style="max-width: 100%; margin-bottom: 1.5rem;">
+            <code><span class="prefix">$</span> <span class="cmd">brew install jdanielnd/tap/crm</span></code>
+            <button onclick="navigator.clipboard.writeText('brew install jdanielnd/tap/crm')" title="Copy to clipboard">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </div>
+          <h3 style="color: #fff; font-size: 1rem; margin-bottom: 0.75rem;">2. Connect to Claude</h3>
+          <p style="color: #B0ADC0; font-size: 0.9rem; margin-bottom: 0.75rem;">Register crm as an MCP server so Claude can access your contacts, deals, and tasks:</p>
+          <div class="install-snippet" style="max-width: 100%;">
+            <code><span class="prefix">$</span> <span class="cmd">claude mcp add crm -- crm mcp serve</span></code>
+            <button onclick="navigator.clipboard.writeText('claude mcp add crm -- crm mcp serve')" title="Copy to clipboard">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </div>
+          <p style="color: #6B6889; font-size: 0.8rem; margin-top: 0.75rem;">That's it. Claude can now read and update your CRM.</p>
+        </div>
+        <div class="mcp-example">
+          <p>After a meeting, just tell Claude:</p>
+          <p class="quote">"Had a great meeting with Jane. She'll sign the contract next week. Set a follow-up for Thursday."</p>
+          <p>Claude will automatically:</p>
+          <ul>
+            <li>Log the meeting interaction</li>
+            <li>Update the deal stage to negotiation</li>
+            <li>Create a follow-up task for Thursday</li>
+            <li>Update Jane's summary with new context</li>
+          </ul>
+        </div>
+      </div>
+      <h3 style="color: #fff; font-size: 1.1rem; margin-top: 3rem; margin-bottom: 1.25rem;">18 tools available</h3>
+      <div class="mcp-tools">
+        <div class="mcp-tool"><code>crm_person_search</code> <span>Find contacts</span></div>
+        <div class="mcp-tool"><code>crm_person_get</code> <span>Get person details</span></div>
+        <div class="mcp-tool"><code>crm_person_create</code> <span>Create a person</span></div>
+        <div class="mcp-tool"><code>crm_person_update</code> <span>Update person fields</span></div>
+        <div class="mcp-tool"><code>crm_person_delete</code> <span>Archive a person</span></div>
+        <div class="mcp-tool"><code>crm_person_relate</code> <span>Link two people</span></div>
+        <div class="mcp-tool"><code>crm_org_search</code> <span>Search organizations</span></div>
+        <div class="mcp-tool"><code>crm_org_get</code> <span>Get org details</span></div>
+        <div class="mcp-tool"><code>crm_interaction_log</code> <span>Log an activity</span></div>
+        <div class="mcp-tool"><code>crm_interaction_list</code> <span>List interactions</span></div>
+        <div class="mcp-tool"><code>crm_deal_create</code> <span>Create a deal</span></div>
+        <div class="mcp-tool"><code>crm_deal_update</code> <span>Update a deal</span></div>
+        <div class="mcp-tool"><code>crm_task_create</code> <span>Create a task</span></div>
+        <div class="mcp-tool"><code>crm_task_list</code> <span>List open tasks</span></div>
+        <div class="mcp-tool"><code>crm_tag_apply</code> <span>Apply a tag</span></div>
+        <div class="mcp-tool"><code>crm_search</code> <span>Cross-entity search</span></div>
+        <div class="mcp-tool"><code>crm_context</code> <span>Full person briefing</span></div>
+        <div class="mcp-tool"><code>crm_stats</code> <span>CRM summary stats</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Use Cases -->
+  <section id="use-cases" class="section-dark">
+    <div class="section-inner">
+    <p class="section-label">Use Cases</p>
+    <h2 class="section-title">See it in action.</h2>
+    <p class="section-desc">
+      Real examples of how crm-cli works with Claude across different workflows.
+    </p>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('personal')">Networking</button>
+      <button class="tab-btn" onclick="switchTab('sales')">Sales</button>
+      <button class="tab-btn" onclick="switchTab('founder')">Founder</button>
+    </div>
+
+    <!-- Personal / Networking -->
+    <div class="tab-panel active" id="tab-personal">
+      <div class="chat-scenario">
+        <h3>After a conference</h3>
+        <p>You met several people at a conference and want to log them before you forget.</p>
+      </div>
+      <div class="chat">
+        <div class="chat-header">
+          <div class="avatar">C</div>
+          <span>Claude</span>
+        </div>
+        <div class="chat-body">
+          <div class="chat-msg user">
+            <div class="bubble">I just got back from ReactConf. Met a few people I want to remember: Sarah Chen, she's a staff engineer at Vercel, we talked about server components. Also met David Park from Linear, he's their head of design. And Julia Torres, freelance consultant, she might be a great mentor — her email is julia@torres.dev</div>
+          </div>
+          <div class="chat-msg assistant">
+            <div class="bubble">
+              I'll add all three to your CRM and log the context from the conference.
+              <br><br>
+              <span class="tool-call">crm_person_create</span> Sarah Chen — Staff Engineer, Vercel<br>
+              <span class="tool-call">crm_person_create</span> David Park — Head of Design, Linear<br>
+              <span class="tool-call">crm_person_create</span> Julia Torres — Freelance Consultant<br>
+              <span class="tool-call">crm_interaction_log</span> Note: "Met at ReactConf" for all three<br>
+              <span class="tool-call">crm_person_relate</span> Julia Torres → potential mentor<br>
+              <span class="tool-call">crm_tag_apply</span> "reactconf-2026" on all three
+              <br><br>
+              Done! All three are in your CRM, tagged with "reactconf-2026". I noted Julia as a potential mentor. Want me to set follow-up reminders?
+            </div>
+          </div>
+          <div class="chat-msg user">
+            <div class="bubble">Yes, remind me to email Sarah and David next week, and set up a coffee chat with Julia within 2 weeks.</div>
+          </div>
+          <div class="chat-msg assistant">
+            <div class="bubble">
+              <span class="tool-call">crm_task_create</span> "Email Sarah Chen — follow up on server components" — due Mar 14<br>
+              <span class="tool-call">crm_task_create</span> "Email David Park — follow up from ReactConf" — due Mar 14<br>
+              <span class="tool-call">crm_task_create</span> "Schedule coffee chat with Julia Torres" — due Mar 21, high priority
+              <br><br>
+              All set. Three follow-ups created. I gave the Julia one high priority since mentorship connections are valuable.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sales -->
+    <div class="tab-panel" id="tab-sales">
+      <div class="chat-scenario">
+        <h3>Managing a sales pipeline</h3>
+        <p>Tracking deals, logging calls, and preparing for client meetings.</p>
+      </div>
+      <div class="chat">
+        <div class="chat-header">
+          <div class="avatar">C</div>
+          <span>Claude</span>
+        </div>
+        <div class="chat-body">
+          <div class="chat-msg user">
+            <div class="bubble">Just finished a demo call with Acme Corp. They loved the product, want to move forward with a $45k annual contract. The decision maker is Tom Bradley, their VP of Engineering. He wants a proposal by Friday.</div>
+          </div>
+          <div class="chat-msg assistant">
+            <div class="bubble">
+              Great news! Let me update everything.
+              <br><br>
+              <span class="tool-call">crm_interaction_log</span> Demo call with Tom Bradley — "Product demo, positive reception, $45k annual"<br>
+              <span class="tool-call">crm_deal_create</span> "Acme Corp — Annual Contract" — $45,000, stage: proposal<br>
+              <span class="tool-call">crm_person_update</span> Tom Bradley summary updated with demo feedback<br>
+              <span class="tool-call">crm_task_create</span> "Send proposal to Tom Bradley (Acme)" — due Friday, high priority
+              <br><br>
+              Deal created at $45k in the proposal stage. You have a task to send the proposal by Friday. Want me to pull up your pipeline summary?
+            </div>
+          </div>
+          <div class="chat-msg user">
+            <div class="bubble">Yes, show me the pipeline and any overdue tasks.</div>
+          </div>
+          <div class="chat-msg assistant">
+            <div class="bubble">
+              <span class="tool-call">crm_stats</span><br>
+              <span class="tool-call">crm_task_list</span> overdue tasks
+              <br><br>
+              <strong>Pipeline:</strong> 3 leads ($12k), 2 proposals ($67k incl. Acme), 1 negotiation ($28k). Total open: $107k across 6 deals.
+              <br><br>
+              <strong>Overdue:</strong> 1 task — "Follow up with Beta Inc on contract terms" was due 2 days ago. Want me to bump it or should I draft a follow-up?
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Founder -->
+    <div class="tab-panel" id="tab-founder">
+      <div class="chat-scenario">
+        <h3>Preparing for an investor meeting</h3>
+        <p>Pulling together context on a VC before a fundraising conversation.</p>
+      </div>
+      <div class="chat">
+        <div class="chat-header">
+          <div class="avatar">C</div>
+          <span>Claude</span>
+        </div>
+        <div class="chat-body">
+          <div class="chat-msg user">
+            <div class="bubble">I have a call with Maria Gonzalez from Sequoia in an hour. Can you brief me on our history?</div>
+          </div>
+          <div class="chat-msg assistant">
+            <div class="bubble">
+              <span class="tool-call">crm_context</span> Maria Gonzalez — full briefing
+              <br><br>
+              <strong>Maria Gonzalez</strong> — Partner at Sequoia Capital<br>
+              <strong>Org:</strong> Sequoia Capital (VC, Growth &amp; Early Stage)<br>
+              <strong>Tags:</strong> investor, series-a-target
+              <br><br>
+              <strong>History (3 interactions):</strong><br>
+              &bull; Mar 1 — Intro email via warm intro from Alex Kim<br>
+              &bull; Feb 15 — Met at SaaStr Annual, discussed market opportunity<br>
+              &bull; Feb 10 — She liked your blog post on PLG metrics (inbound)
+              <br><br>
+              <strong>Relationships:</strong> Referred by Alex Kim (angel investor)
+              <br><br>
+              <strong>Open tasks:</strong> "Send updated pitch deck" (due today, high priority)
+              <br><br>
+              Key context: she's interested in your PLG motion and asked about net revenue retention last time. Your pitch deck task is due today — have you sent it?
+            </div>
+          </div>
+          <div class="chat-msg user">
+            <div class="bubble">Not yet, sending now. After the call, remind me to log how it went and update the deal.</div>
+          </div>
+          <div class="chat-msg assistant">
+            <div class="bubble">
+              <span class="tool-call">crm_task_create</span> "Log call with Maria Gonzalez and update Series A deal" — due today
+              <br><br>
+              Reminder set. Good luck on the call! When you're back, just tell me how it went and I'll handle the rest.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- Principles -->
+  <section>
+    <p class="section-label">Philosophy</p>
+    <h2 class="section-title">Built on principles.</h2>
+    <p class="section-desc">
+      Every design decision optimizes for simplicity, speed, and data ownership.
+    </p>
+    <div class="principles-grid">
+      <div class="principle">
+        <div class="icon">&#x1F3E0;</div>
+        <h3>Local-first</h3>
+        <p>Your data lives on your machine in a single SQLite file. No cloud, no sync, no accounts.</p>
+      </div>
+      <div class="principle">
+        <div class="icon">&#x26A1;</div>
+        <h3>Instant</h3>
+        <p>Sub-millisecond queries on local SQLite. No network latency, no loading spinners, no waiting.</p>
+      </div>
+      <div class="principle">
+        <div class="icon">&#x1F4E6;</div>
+        <h3>Single binary</h3>
+        <p>One file, zero dependencies. Pure Go with embedded SQLite. Download and run.</p>
+      </div>
+      <div class="principle">
+        <div class="icon">&#x1F527;</div>
+        <h3>Composable</h3>
+        <p>Structured output, exit codes, stdin/stdout discipline. Plays well with pipes and scripts.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" class="section-dark">
+    <div class="section-inner">
+    <p class="section-label">FAQ</p>
+    <h2 class="section-title">Common questions.</h2>
+    <div class="faq-grid">
+      <div class="faq-item">
+        <h3>What is Homebrew?</h3>
+        <p><a href="https://brew.sh">Homebrew</a> is a package manager for macOS and Linux. Install it by pasting the command from <a href="https://brew.sh">brew.sh</a> into your terminal. Once installed, you can use <code>brew install</code> to install crm-cli and thousands of other tools.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Can I install without Homebrew?</h3>
+        <p>Yes. You can use <code>go install github.com/Array-Ventures/gtm-crm/cmd/crm@latest</code> if you have Go installed, or download a prebuilt binary for your platform from <a href="https://github.com/Array-Ventures/gtm-crm/releases">GitHub Releases</a>.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Where is my data stored?</h3>
+        <p>In a single SQLite file at <code>~/.crm/crm.db</code>. You can override this with the <code>--db</code> flag or the <code>CRM_DB</code> environment variable. The file is portable — copy it anywhere, back it up however you like.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Can I sync across machines?</h3>
+        <p>Point your database to a cloud-synced folder like iCloud Drive or Dropbox. On macOS: <code>export CRM_DB="$HOME/Library/Mobile Documents/com~apple~CloudDocs/crm/crm.db"</code>. Just avoid writing from two machines at the same time.</p>
+      </div>
+      <div class="faq-item">
+        <h3>What is MCP?</h3>
+        <p>The <a href="https://modelcontextprotocol.io/">Model Context Protocol</a> is an open standard that lets AI agents interact with local tools. crm-cli includes a built-in MCP server, so Claude can read and update your contacts, deals, and tasks directly.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Is my data sent to the cloud?</h3>
+        <p>Never. crm-cli is fully local. When used with Claude via MCP, the data flows between your local crm binary and the Claude client on your machine — it's not uploaded to any external server by crm-cli.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Does it work on Windows?</h3>
+        <p>Yes. Prebuilt Windows binaries are available on the <a href="https://github.com/Array-Ventures/gtm-crm/releases">Releases page</a>. You can also build from source with <code>go build</code> — no CGO required.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Can I delete data permanently?</h3>
+        <p>crm-cli uses soft deletes (archiving) by default, so records are recoverable. The SQLite file is yours — you can always open it with any SQLite client if you need to permanently remove data.</p>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-inner">
+      <p style="color: #6B6889;">Built by <a href="https://github.com/jdanielnd" style="color: #B0ADC0;">jdanielnd</a>. MIT License.</p>
+      <div class="footer-links">
+        <a href="https://github.com/Array-Ventures/gtm-crm" style="color: #6B6889;">GitHub</a>
+        <a href="https://github.com/Array-Ventures/gtm-crm/releases" style="color: #6B6889;">Releases</a>
+        <a href="https://github.com/Array-Ventures/gtm-crm/issues" style="color: #6B6889;">Issues</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "e517b9926e6645ca81989a0dda2105d4"}'></script><!-- End Cloudflare Web Analytics -->
+
+  <script>
+    function switchTab(id) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('tab-' + id).classList.add('active');
+      event.currentTarget.classList.add('active');
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,52 @@
+version: 2
+
+builds:
+  - main: ./cmd/crm
+    binary: crm
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/Array-Ventures/gtm-crm/internal/cli.Version={{.Version}}
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+checksum:
+  name_template: 'checksums.txt'
+
+brews:
+  - repository:
+      owner: jdanielnd
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    name: crm
+    directory: Formula
+    homepage: "https://github.com/Array-Ventures/gtm-crm"
+    description: "Local-first personal CRM for the terminal"
+    license: "MIT"
+    install: |
+      bin.install "crm"
+    test: |
+      system "#{bin}/crm", "--version"
