@@ -36,17 +36,7 @@ changelog:
 checksum:
   name_template: 'checksums.txt'
 
-brews:
-  - repository:
-      owner: Array-Ventures
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    name: crm
-    directory: Formula
-    homepage: "https://github.com/Array-Ventures/gtm-crm"
-    description: "Local-first personal CRM for the terminal"
-    license: "MIT"
-    install: |
-      bin.install "crm"
-    test: |
-      system "#{bin}/crm", "--version"
+# Homebrew tap publishing is intentionally omitted: there's no Array-Ventures/homebrew-tap
+# repo yet, and a missing tap would fail `goreleaser release`. Releases ship the
+# cross-platform binaries + checksums, which the gtm-plugin installer downloads
+# directly. Re-add a `brews:` block once the tap repo + HOMEBREW_TAP_TOKEN exist.
