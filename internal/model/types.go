@@ -229,6 +229,46 @@ type Relationship struct {
 	CreatedAt       string  `json:"created_at"`
 }
 
+// Signal represents a detected go-to-market signal about a person or organization.
+type Signal struct {
+	ID          int64   `json:"id"`
+	UUID        string  `json:"uuid"`
+	SignalType  string  `json:"signal_type"`
+	Description *string `json:"description"`
+	PersonID    *int64  `json:"person_id"`
+	OrgID       *int64  `json:"org_id"`
+	DetectedAt  string  `json:"detected_at"`
+	Archived    bool    `json:"-"`
+	CreatedAt   string  `json:"created_at"`
+	UpdatedAt   string  `json:"updated_at"`
+}
+
+// CreateSignalInput holds fields for creating a signal.
+type CreateSignalInput struct {
+	SignalType  string
+	Description *string
+	PersonID    *int64
+	OrgID       *int64
+	DetectedAt  *string
+}
+
+// UpdateSignalInput holds optional fields for updating a signal.
+type UpdateSignalInput struct {
+	SignalType  *string
+	Description *string
+	PersonID    *int64
+	OrgID       *int64
+	DetectedAt  *string
+}
+
+// SignalFilters holds optional filters for listing signals.
+type SignalFilters struct {
+	PersonID   *int64
+	OrgID      *int64
+	SignalType *string
+	Limit      int
+}
+
 // Valid entity types for tagging.
 var EntityTypes = []string{"person", "organization", "deal", "interaction"}
 

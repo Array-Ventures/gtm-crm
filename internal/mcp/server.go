@@ -28,6 +28,7 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 	dr := repo.NewDealRepo(db)
 	tr := repo.NewTaskRepo(db)
 	tagr := repo.NewTagRepo(db)
+	sr := repo.NewSignalRepo(db)
 
 	// Person tools
 	s.AddTool(
@@ -199,6 +200,30 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 			gomcp.WithNumber("limit", gomcp.Description("Max results")),
 		),
 		taskListHandler(tr),
+	)
+
+	// Signal tools
+	s.AddTool(
+		gomcp.NewTool("crm_signal_create",
+			gomcp.WithDescription("Create a go-to-market signal about a person or organization"),
+			gomcp.WithString("signal_type", gomcp.Required(), gomcp.Description("Signal type, e.g. github, arxiv, jobs, funding")),
+			gomcp.WithString("description", gomcp.Description("What the signal is")),
+			gomcp.WithNumber("person_id", gomcp.Description("Associated person ID")),
+			gomcp.WithNumber("org_id", gomcp.Description("Associated organization ID")),
+			gomcp.WithString("detected_at", gomcp.Description("When the signal was detected (ISO 8601; defaults to now)")),
+		),
+		signalCreateHandler(sr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_signal_list",
+			gomcp.WithDescription("List signals, optionally filtered by person, org, or type"),
+			gomcp.WithNumber("person_id", gomcp.Description("Filter by person ID")),
+			gomcp.WithNumber("org_id", gomcp.Description("Filter by organization ID")),
+			gomcp.WithString("signal_type", gomcp.Description("Filter by signal type")),
+			gomcp.WithNumber("limit", gomcp.Description("Max results (default 20)")),
+		),
+		signalListHandler(sr),
 	)
 
 	// Tag tools
@@ -729,6 +754,56 @@ func taskListHandler(tr *repo.TaskRepo) server.ToolHandlerFunc {
 			return mcpError(err)
 		}
 		return jsonResult(tasks)
+	}
+}
+
+// --- Signal handlers ---
+
+func signalCreateHandler(sr *repo.SignalRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		args := req.GetArguments()
+		input := model.CreateSignalInput{
+			SignalType:  req.GetString("signal_type", ""),
+			Description: strPtr(req.GetString("description", "")),
+		}
+		if pid, ok := argInt64(args, "person_id"); ok {
+			input.PersonID = &pid
+		}
+		if oid, ok := argInt64(args, "org_id"); ok {
+			input.OrgID = &oid
+		}
+		if at := req.GetString("detected_at", ""); at != "" {
+			input.DetectedAt = &at
+		}
+
+		signal, err := sr.Create(ctx, input)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(signal)
+	}
+}
+
+func signalListHandler(sr *repo.SignalRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		filters := model.SignalFilters{
+			Limit: req.GetInt("limit", 20),
+		}
+		if pid := int64(req.GetInt("person_id", 0)); pid > 0 {
+			filters.PersonID = &pid
+		}
+		if oid := int64(req.GetInt("org_id", 0)); oid > 0 {
+			filters.OrgID = &oid
+		}
+		if t := req.GetString("signal_type", ""); t != "" {
+			filters.SignalType = &t
+		}
+
+		signals, err := sr.FindAll(ctx, filters)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(signals)
 	}
 }
 
