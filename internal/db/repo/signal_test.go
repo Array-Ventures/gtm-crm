@@ -177,3 +177,21 @@ func TestSignalArchive(t *testing.T) {
 	_, err = sr.FindByID(ctx, signal.ID)
 	assert.ErrorIs(t, err, model.ErrNotFound)
 }
+
+func TestSignalCreate_StoresSourceURL(t *testing.T) {
+	sr, _, _ := setupSignalTestDB(t)
+	url := "https://github.com/collinear-ai/verl-trainer"
+
+	created, err := sr.Create(context.Background(), model.CreateSignalInput{
+		SignalType: "github",
+		SourceURL:  &url,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, created.SourceURL)
+	assert.Equal(t, url, *created.SourceURL)
+
+	found, err := sr.FindByID(context.Background(), created.ID)
+	require.NoError(t, err)
+	require.NotNil(t, found.SourceURL)
+	assert.Equal(t, url, *found.SourceURL)
+}

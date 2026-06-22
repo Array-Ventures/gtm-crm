@@ -235,6 +235,7 @@ type Signal struct {
 	UUID        string  `json:"uuid"`
 	SignalType  string  `json:"signal_type"`
 	Description *string `json:"description"`
+	SourceURL   *string `json:"source_url"`
 	PersonID    *int64  `json:"person_id"`
 	OrgID       *int64  `json:"org_id"`
 	DetectedAt  string  `json:"detected_at"`
@@ -247,6 +248,7 @@ type Signal struct {
 type CreateSignalInput struct {
 	SignalType  string
 	Description *string
+	SourceURL   *string
 	PersonID    *int64
 	OrgID       *int64
 	DetectedAt  *string
