@@ -1,7 +1,5 @@
 # crm — your contacts, in your terminal.
 
-![crm banner](.github/banner-crm-cli.png)
-
 [![CI](https://github.com/Array-Ventures/gtm-crm/actions/workflows/ci.yml/badge.svg)](https://github.com/Array-Ventures/gtm-crm/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Array-Ventures/gtm-crm)](https://goreportcard.com/report/github.com/Array-Ventures/gtm-crm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -28,7 +26,7 @@ Single static binary. SQLite database. No cloud. No accounts. Your data stays on
 
 ```bash
 # Homebrew (macOS/Linux)
-brew install jdanielnd/tap/crm
+brew install Array-Ventures/tap/crm
 
 # Go
 go install github.com/Array-Ventures/gtm-crm/cmd/crm@latest
@@ -296,7 +294,7 @@ SQLite WAL mode handles concurrent reads well, but avoid writing from two machin
 
 ```bash
 git clone https://github.com/Array-Ventures/gtm-crm.git
-cd crm-cli
+cd gtm-crm
 go build -o crm ./cmd/crm
 go test ./...
 ```

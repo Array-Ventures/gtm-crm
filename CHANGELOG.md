@@ -9,7 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Project website at [crmcli.sh](https://www.crmcli.sh) with install guide, FAQ, and AI use case examples
 - `AGENT.md` with CRM agent instructions for Claude users
 - Claude Desktop setup instructions in README
 

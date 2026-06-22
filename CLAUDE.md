@@ -1,4 +1,4 @@
-# CLAUDE.md — crm-cli
+# CLAUDE.md — gtm-crm
 
 ## Project Overview
 

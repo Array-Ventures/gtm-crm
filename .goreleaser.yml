@@ -38,7 +38,7 @@ checksum:
 
 brews:
   - repository:
-      owner: jdanielnd
+      owner: Array-Ventures
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     name: crm
