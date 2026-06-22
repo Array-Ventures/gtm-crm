@@ -24,28 +24,62 @@ func NewSignalRepo(db *sql.DB) *SignalRepo {
 func scanSignal(row interface{ Scan(...any) error }) (*model.Signal, error) {
 	var s model.Signal
 	err := row.Scan(
-		&s.ID, &s.UUID, &s.SignalType, &s.Description,
+		&s.ID, &s.UUID, &s.SignalType, &s.Description, &s.SourceURL,
 		&s.PersonID, &s.OrgID, &s.DetectedAt,
 		&s.Archived, &s.CreatedAt, &s.UpdatedAt,
 	)
 	return &s, err
 }
 
-// Create inserts a new signal.
+// Create inserts a new signal. When SourceURL is set it is idempotent: a second
+// Create with the same live source_url returns the existing signal instead of
+// inserting a duplicate (dedup is enforced by the ux_signals_source_url partial
+// unique index).
 func (r *SignalRepo) Create(ctx context.Context, input model.CreateSignalInput) (*model.Signal, error) {
 	if strings.TrimSpace(input.SignalType) == "" {
 		return nil, fmt.Errorf("signal_type is required: %w", model.ErrValidation)
 	}
 
 	id := uuid.New().String()
+
+	if input.SourceURL != nil && strings.TrimSpace(*input.SourceURL) != "" {
+		tx, err := r.db.BeginTx(ctx, nil)
+		if err != nil {
+			return nil, fmt.Errorf("begin upsert signal: %w", err)
+		}
+		defer func() { _ = tx.Rollback() }()
+
+		var signalID int64
+		err = tx.QueryRowContext(ctx,
+			`INSERT INTO signals (uuid, signal_type, description, source_url, person_id, org_id, detected_at)
+			 VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+			 ON CONFLICT(source_url) WHERE archived = 0 AND source_url IS NOT NULL
+			 DO NOTHING
+			 RETURNING id`,
+			id, input.SignalType, input.Description, input.SourceURL, input.PersonID, input.OrgID, input.DetectedAt,
+		).Scan(&signalID)
+		if errors.Is(err, sql.ErrNoRows) {
+			// Conflict: the INSERT did nothing because a live row already exists.
+			err = tx.QueryRowContext(ctx,
+				`SELECT id FROM signals WHERE source_url = ? AND archived = 0`,
+				*input.SourceURL).Scan(&signalID)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("upsert signal: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit upsert signal: %w", err)
+		}
+		return r.FindByID(ctx, signalID)
+	}
+
 	result, err := r.db.ExecContext(ctx,
-		`INSERT INTO signals (uuid, signal_type, description, person_id, org_id, detected_at)
-		 VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`,
-		id, input.SignalType, input.Description, input.PersonID, input.OrgID, input.DetectedAt)
+		`INSERT INTO signals (uuid, signal_type, description, source_url, person_id, org_id, detected_at)
+		 VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`,
+		id, input.SignalType, input.Description, input.SourceURL, input.PersonID, input.OrgID, input.DetectedAt)
 	if err != nil {
 		return nil, fmt.Errorf("create signal: %w", err)
 	}
-
 	signalID, _ := result.LastInsertId()
 	return r.FindByID(ctx, signalID)
 }
@@ -53,7 +87,7 @@ func (r *SignalRepo) Create(ctx context.Context, input model.CreateSignalInput) 
 // FindByID returns a signal by ID.
 func (r *SignalRepo) FindByID(ctx context.Context, id int64) (*model.Signal, error) {
 	s, err := scanSignal(r.db.QueryRowContext(ctx,
-		`SELECT id, uuid, signal_type, description, person_id, org_id, detected_at,
+		`SELECT id, uuid, signal_type, description, source_url, person_id, org_id, detected_at,
 		        archived, created_at, updated_at
 		 FROM signals WHERE id = ? AND archived = 0`, id))
 	if err != nil {
@@ -67,7 +101,7 @@ func (r *SignalRepo) FindByID(ctx context.Context, id int64) (*model.Signal, err
 
 // FindAll returns signals with optional filters.
 func (r *SignalRepo) FindAll(ctx context.Context, filters model.SignalFilters) ([]*model.Signal, error) {
-	query := `SELECT id, uuid, signal_type, description, person_id, org_id, detected_at,
+	query := `SELECT id, uuid, signal_type, description, source_url, person_id, org_id, detected_at,
 	                 archived, created_at, updated_at
 	          FROM signals WHERE archived = 0`
 	var args []any

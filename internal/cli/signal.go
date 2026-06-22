@@ -14,6 +14,7 @@ import (
 var signalColumns = []format.ColumnDef{
 	{Header: "ID", Field: "id"},
 	{Header: "Type", Field: "signal_type"},
+	{Header: "Source", Field: "source_url"},
 	{Header: "Description", Field: "description"},
 	{Header: "Person", Field: "person_id"},
 	{Header: "Org", Field: "org_id"},
@@ -31,6 +32,9 @@ func signalToMap(s *model.Signal) map[string]any {
 	}
 	if s.Description != nil {
 		m["description"] = *s.Description
+	}
+	if s.SourceURL != nil {
+		m["source_url"] = *s.SourceURL
 	}
 	if s.PersonID != nil {
 		m["person_id"] = *s.PersonID
@@ -64,7 +68,7 @@ func registerSignalCommands(rootCmd *cobra.Command) {
 }
 
 func signalAddCmd() *cobra.Command {
-	var description, detectedAt string
+	var description, detectedAt, sourceURL string
 	var personID, orgID int64
 
 	cmd := &cobra.Command{
@@ -81,6 +85,7 @@ func signalAddCmd() *cobra.Command {
 			input := model.CreateSignalInput{
 				SignalType:  args[0],
 				Description: nilIfEmpty(description),
+				SourceURL:   nilIfEmpty(sourceURL),
 				DetectedAt:  nilIfEmpty(detectedAt),
 			}
 			if cmd.Flags().Changed("person") {
@@ -102,6 +107,7 @@ func signalAddCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&description, "description", "", "what the signal is")
+	cmd.Flags().StringVar(&sourceURL, "source-url", "", "canonical source URL (dedup key)")
 	cmd.Flags().Int64Var(&personID, "person", 0, "associated person ID")
 	cmd.Flags().Int64Var(&orgID, "org", 0, "associated organization ID")
 	cmd.Flags().StringVar(&detectedAt, "at", "", "when the signal was detected (ISO 8601)")
