@@ -59,6 +59,7 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 			gomcp.WithString("company", gomcp.Description("Company name")),
 			gomcp.WithString("location", gomcp.Description("Location")),
 			gomcp.WithString("notes", gomcp.Description("Notes")),
+			gomcp.WithString("github_url", gomcp.Description("GitHub profile URL (unique dedup key)")),
 		),
 		personCreateHandler(pr),
 	)
@@ -76,6 +77,7 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 			gomcp.WithString("location", gomcp.Description("Location")),
 			gomcp.WithString("notes", gomcp.Description("Notes")),
 			gomcp.WithString("summary", gomcp.Description("AI-maintained summary/dossier")),
+			gomcp.WithString("github_url", gomcp.Description("GitHub profile URL (unique dedup key)")),
 		),
 		personUpdateHandler(pr),
 	)
@@ -104,6 +106,40 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Organization ID")),
 		),
 		orgGetHandler(or),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_org_create",
+			gomcp.WithDescription("Create a new organization"),
+			gomcp.WithString("name", gomcp.Required(), gomcp.Description("Organization name")),
+			gomcp.WithString("domain", gomcp.Description("Website domain")),
+			gomcp.WithString("industry", gomcp.Description("Industry")),
+			gomcp.WithString("notes", gomcp.Description("Notes")),
+			gomcp.WithString("github_url", gomcp.Description("GitHub organization URL")),
+		),
+		orgCreateHandler(or),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_org_update",
+			gomcp.WithDescription("Update organization fields"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Organization ID")),
+			gomcp.WithString("name", gomcp.Description("Organization name")),
+			gomcp.WithString("domain", gomcp.Description("Website domain")),
+			gomcp.WithString("industry", gomcp.Description("Industry")),
+			gomcp.WithString("notes", gomcp.Description("Notes")),
+			gomcp.WithString("summary", gomcp.Description("AI-maintained summary")),
+			gomcp.WithString("github_url", gomcp.Description("GitHub organization URL")),
+		),
+		orgUpdateHandler(or),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_org_delete",
+			gomcp.WithDescription("Delete (archive) an organization by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Organization ID")),
+		),
+		orgDeleteHandler(or),
 	)
 
 	// Interaction tools
@@ -177,6 +213,34 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 		dealUpdateHandler(dr),
 	)
 
+	s.AddTool(
+		gomcp.NewTool("crm_deal_list",
+			gomcp.WithDescription("List deals with optional filters"),
+			gomcp.WithString("stage", gomcp.Description("Filter by stage: lead, prospect, proposal, negotiation, won, lost")),
+			gomcp.WithNumber("person_id", gomcp.Description("Filter by person ID")),
+			gomcp.WithNumber("org_id", gomcp.Description("Filter by organization ID")),
+			gomcp.WithBoolean("open", gomcp.Description("When true, exclude won/lost deals")),
+			gomcp.WithNumber("limit", gomcp.Description("Max results")),
+		),
+		dealListHandler(dr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_deal_get",
+			gomcp.WithDescription("Get full details for a deal by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Deal ID")),
+		),
+		dealGetHandler(dr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_deal_delete",
+			gomcp.WithDescription("Delete (archive) a deal by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Deal ID")),
+		),
+		dealDeleteHandler(dr),
+	)
+
 	// Task tools
 	s.AddTool(
 		gomcp.NewTool("crm_task_create",
@@ -200,6 +264,44 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 			gomcp.WithNumber("limit", gomcp.Description("Max results")),
 		),
 		taskListHandler(tr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_task_get",
+			gomcp.WithDescription("Get full details for a task by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Task ID")),
+		),
+		taskGetHandler(tr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_task_update",
+			gomcp.WithDescription("Update a task (title, due date, priority, etc.)"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Task ID")),
+			gomcp.WithString("title", gomcp.Description("Task title")),
+			gomcp.WithString("description", gomcp.Description("Description")),
+			gomcp.WithNumber("person_id", gomcp.Description("Associated person ID")),
+			gomcp.WithNumber("deal_id", gomcp.Description("Associated deal ID")),
+			gomcp.WithString("due", gomcp.Description("Due date (ISO 8601)")),
+			gomcp.WithString("priority", gomcp.Description("Priority: low, medium, high")),
+		),
+		taskUpdateHandler(tr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_task_complete",
+			gomcp.WithDescription("Mark a task as completed"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Task ID")),
+		),
+		taskCompleteHandler(tr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_task_delete",
+			gomcp.WithDescription("Delete (archive) a task by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Task ID")),
+		),
+		taskDeleteHandler(tr),
 	)
 
 	// Signal tools
@@ -238,6 +340,22 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 			gomcp.WithString("detected_at", gomcp.Description("When the signal was detected (ISO 8601)")),
 		),
 		signalUpdateHandler(sr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_signal_get",
+			gomcp.WithDescription("Get full details for a signal by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Signal ID")),
+		),
+		signalGetHandler(sr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_signal_delete",
+			gomcp.WithDescription("Delete (archive) a signal by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Signal ID")),
+		),
+		signalDeleteHandler(sr),
 	)
 
 	// Tag tools
@@ -390,6 +508,7 @@ func personCreateHandler(pr *repo.PersonRepo) server.ToolHandlerFunc {
 			Company:   strPtr(req.GetString("company", "")),
 			Location:  strPtr(req.GetString("location", "")),
 			Notes:     strPtr(req.GetString("notes", "")),
+			GitHubURL: strPtr(req.GetString("github_url", "")),
 		}
 		person, err := pr.Create(ctx, input)
 		if err != nil {
@@ -434,6 +553,9 @@ func personUpdateHandler(pr *repo.PersonRepo) server.ToolHandlerFunc {
 		}
 		if s, ok := argString(args, "summary"); ok {
 			input.Summary = &s
+		}
+		if s, ok := argString(args, "github_url"); ok {
+			input.GitHubURL = &s
 		}
 
 		person, err := pr.Update(ctx, id, input)
@@ -483,6 +605,73 @@ func orgGetHandler(or *repo.OrgRepo) server.ToolHandlerFunc {
 			return mcpError(err)
 		}
 		return jsonResult(org)
+	}
+}
+
+func orgCreateHandler(or *repo.OrgRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		input := model.CreateOrgInput{
+			Name:      req.GetString("name", ""),
+			Domain:    strPtr(req.GetString("domain", "")),
+			Industry:  strPtr(req.GetString("industry", "")),
+			Notes:     strPtr(req.GetString("notes", "")),
+			GitHubURL: strPtr(req.GetString("github_url", "")),
+		}
+		org, err := or.Create(ctx, input)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(org)
+	}
+}
+
+func orgUpdateHandler(or *repo.OrgRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		args := req.GetArguments()
+		input := model.UpdateOrgInput{}
+
+		if s, ok := argString(args, "name"); ok {
+			input.Name = &s
+		}
+		if s, ok := argString(args, "domain"); ok {
+			input.Domain = &s
+		}
+		if s, ok := argString(args, "industry"); ok {
+			input.Industry = &s
+		}
+		if s, ok := argString(args, "notes"); ok {
+			input.Notes = &s
+		}
+		if s, ok := argString(args, "summary"); ok {
+			input.Summary = &s
+		}
+		if s, ok := argString(args, "github_url"); ok {
+			input.GitHubURL = &s
+		}
+
+		org, err := or.Update(ctx, id, input)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(org)
+	}
+}
+
+func orgDeleteHandler(or *repo.OrgRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		err := or.Archive(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return gomcp.NewToolResultText(fmt.Sprintf("Organization #%d deleted", id)), nil
 	}
 }
 
@@ -724,6 +913,60 @@ func dealUpdateHandler(dr *repo.DealRepo) server.ToolHandlerFunc {
 	}
 }
 
+func dealListHandler(dr *repo.DealRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		args := req.GetArguments()
+		filters := model.DealFilters{
+			Limit:         req.GetInt("limit", 0),
+			ExcludeClosed: req.GetBool("open", false),
+		}
+
+		if s, ok := argString(args, "stage"); ok {
+			filters.Stage = &s
+		}
+		if pid, ok := argInt64(args, "person_id"); ok {
+			filters.PersonID = &pid
+		}
+		if oid, ok := argInt64(args, "org_id"); ok {
+			filters.OrgID = &oid
+		}
+
+		deals, err := dr.FindAll(ctx, filters)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(deals)
+	}
+}
+
+func dealGetHandler(dr *repo.DealRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		deal, err := dr.FindByID(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(deal)
+	}
+}
+
+func dealDeleteHandler(dr *repo.DealRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		err := dr.Archive(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return gomcp.NewToolResultText(fmt.Sprintf("Deal #%d deleted", id)), nil
+	}
+}
+
 // --- Task handlers ---
 
 func taskCreateHandler(tr *repo.TaskRepo) server.ToolHandlerFunc {
@@ -768,6 +1011,84 @@ func taskListHandler(tr *repo.TaskRepo) server.ToolHandlerFunc {
 			return mcpError(err)
 		}
 		return jsonResult(tasks)
+	}
+}
+
+func taskGetHandler(tr *repo.TaskRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		task, err := tr.FindByID(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(task)
+	}
+}
+
+func taskUpdateHandler(tr *repo.TaskRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		args := req.GetArguments()
+		input := model.UpdateTaskInput{}
+
+		if s, ok := argString(args, "title"); ok {
+			input.Title = &s
+		}
+		if s, ok := argString(args, "description"); ok {
+			input.Description = &s
+		}
+		if pid, ok := argInt64(args, "person_id"); ok {
+			input.PersonID = &pid
+		}
+		if did, ok := argInt64(args, "deal_id"); ok {
+			input.DealID = &did
+		}
+		if s, ok := argString(args, "due"); ok {
+			input.DueAt = &s
+		}
+		if s, ok := argString(args, "priority"); ok {
+			input.Priority = &s
+		}
+
+		task, err := tr.Update(ctx, id, input)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(task)
+	}
+}
+
+func taskCompleteHandler(tr *repo.TaskRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		task, err := tr.Complete(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(task)
+	}
+}
+
+func taskDeleteHandler(tr *repo.TaskRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		err := tr.Archive(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return gomcp.NewToolResultText(fmt.Sprintf("Task #%d deleted", id)), nil
 	}
 }
 
@@ -853,6 +1174,34 @@ func signalUpdateHandler(sr *repo.SignalRepo) server.ToolHandlerFunc {
 			return mcpError(err)
 		}
 		return jsonResult(signal)
+	}
+}
+
+func signalGetHandler(sr *repo.SignalRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		signal, err := sr.FindByID(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(signal)
+	}
+}
+
+func signalDeleteHandler(sr *repo.SignalRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		err := sr.Archive(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return gomcp.NewToolResultText(fmt.Sprintf("Signal #%d deleted", id)), nil
 	}
 }
 
