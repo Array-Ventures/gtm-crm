@@ -207,3 +207,26 @@ func TestPersonEditSummary(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(stdout), &data))
 	assert.Equal(t, "Prefers async; Q3 budget", data[0]["summary"], "summary should be set via person edit --summary")
 }
+
+func TestPersonAddGitHubURLDedups(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+	url := "https://github.com/torvalds"
+
+	out1, _, code1 := crm(t, dbPath, "person", "add", "Linus Torvalds", "--github-url", url, "-f", "json")
+	assert.Equal(t, 0, code1)
+	// Same github_url returns the existing person — and bypasses the name/email
+	// duplicate check (which would otherwise reject the second "Linus Torvalds").
+	out2, _, code2 := crm(t, dbPath, "person", "add", "Linus Torvalds", "--github-url", url, "-f", "json")
+	assert.Equal(t, 0, code2)
+
+	var a, b []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out1), &a))
+	require.NoError(t, json.Unmarshal([]byte(out2), &b))
+	assert.Equal(t, url, a[0]["github_url"])
+	assert.Equal(t, a[0]["id"], b[0]["id"], "same github_url returns the same person id")
+
+	list, _, _ := crm(t, dbPath, "person", "list", "-f", "json")
+	var rows []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(list), &rows))
+	assert.Len(t, rows, 1, "no duplicate person")
+}

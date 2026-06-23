@@ -103,3 +103,37 @@ func TestOrgDelete_NotFound(t *testing.T) {
 	_, _, code := crm(t, dbPath, "org", "delete", "999")
 	assert.Equal(t, 3, code)
 }
+
+func TestOrgAddGitHubURLDedups(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+	url := "https://github.com/vllm-project"
+
+	out1, _, code1 := crm(t, dbPath, "org", "add", "vllm-project", "--github-url", url, "-f", "json")
+	assert.Equal(t, 0, code1)
+	out2, _, code2 := crm(t, dbPath, "org", "add", "vllm-project", "--github-url", url, "-f", "json")
+	assert.Equal(t, 0, code2)
+
+	var a, b []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out1), &a))
+	require.NoError(t, json.Unmarshal([]byte(out2), &b))
+	assert.Equal(t, url, a[0]["github_url"])
+	assert.Equal(t, a[0]["id"], b[0]["id"], "same github_url returns the same org id")
+
+	list, _, _ := crm(t, dbPath, "org", "list", "-f", "json")
+	var rows []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(list), &rows))
+	assert.Len(t, rows, 1, "no duplicate org")
+}
+
+func TestOrgEditEmptyGitHubURLNoCollision(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+	crm(t, dbPath, "org", "add", "Acme", "-f", "json") // id 1
+	crm(t, dbPath, "org", "add", "Beta", "-f", "json") // id 2
+
+	// An empty --github-url must be treated as "unset" (no-op), never written as
+	// a non-NULL "" that would collide on the partial unique index.
+	_, _, c1 := crm(t, dbPath, "org", "edit", "1", "--github-url", "")
+	_, _, c2 := crm(t, dbPath, "org", "edit", "2", "--github-url", "")
+	assert.Equal(t, 0, c1)
+	assert.Equal(t, 0, c2, "second empty --github-url edit must not collide")
+}

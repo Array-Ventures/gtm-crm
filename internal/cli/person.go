@@ -60,6 +60,9 @@ func personToMap(p *model.Person) map[string]any {
 	if p.OrgID != nil {
 		m["org_id"] = *p.OrgID
 	}
+	if p.GitHubURL != nil {
+		m["github_url"] = *p.GitHubURL
+	}
 	return m
 }
 
@@ -88,7 +91,7 @@ func registerPersonCommands(rootCmd *cobra.Command) {
 }
 
 func personAddCmd() *cobra.Command {
-	var email, phone, title, company, location, notes string
+	var email, phone, title, company, location, notes, githubURL string
 	var orgID int64
 
 	cmd := &cobra.Command{
@@ -112,6 +115,7 @@ func personAddCmd() *cobra.Command {
 				Company:   nilIfEmpty(company),
 				Location:  nilIfEmpty(location),
 				Notes:     nilIfEmpty(notes),
+				GitHubURL: nilIfEmpty(githubURL),
 			}
 			if cmd.Flags().Changed("org") {
 				input.OrgID = &orgID
@@ -135,6 +139,7 @@ func personAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&location, "location", "", "location")
 	cmd.Flags().StringVar(&notes, "notes", "", "notes")
 	cmd.Flags().Int64Var(&orgID, "org", 0, "organization ID")
+	cmd.Flags().StringVar(&githubURL, "github-url", "", "GitHub profile URL (unique dedup key)")
 
 	return cmd
 }
@@ -204,7 +209,7 @@ func personShowCmd() *cobra.Command {
 }
 
 func personEditCmd() *cobra.Command {
-	var firstName, lastName, email, phone, title, company, location, notes, summary string
+	var firstName, lastName, email, phone, title, company, location, notes, summary, githubURL string
 	var orgID int64
 
 	cmd := &cobra.Command{
@@ -254,6 +259,12 @@ func personEditCmd() *cobra.Command {
 			if cmd.Flags().Changed("org") {
 				input.OrgID = &orgID
 			}
+			if cmd.Flags().Changed("github-url") {
+				// nilIfEmpty (matching `add`): an empty value is treated as "unset",
+				// never written as "" — a non-NULL empty string would collide on the
+				// partial unique index.
+				input.GitHubURL = nilIfEmpty(githubURL)
+			}
 
 			r := repo.NewPersonRepo(db)
 			person, err := r.Update(cmd.Context(), id, input)
@@ -276,6 +287,7 @@ func personEditCmd() *cobra.Command {
 	cmd.Flags().StringVar(&notes, "notes", "", "notes")
 	cmd.Flags().StringVar(&summary, "summary", "", "AI-maintained summary/dossier")
 	cmd.Flags().Int64Var(&orgID, "org", 0, "organization ID")
+	cmd.Flags().StringVar(&githubURL, "github-url", "", "GitHub profile URL (unique dedup key)")
 
 	return cmd
 }

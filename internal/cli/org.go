@@ -38,6 +38,9 @@ func orgToMap(o *model.Organization) map[string]any {
 	if o.Summary != nil {
 		m["summary"] = *o.Summary
 	}
+	if o.GitHubURL != nil {
+		m["github_url"] = *o.GitHubURL
+	}
 	return m
 }
 
@@ -65,7 +68,7 @@ func registerOrgCommands(rootCmd *cobra.Command) {
 }
 
 func orgAddCmd() *cobra.Command {
-	var domain, industry, notes string
+	var domain, industry, notes, githubURL string
 
 	cmd := &cobra.Command{
 		Use:   "add <name>",
@@ -79,10 +82,11 @@ func orgAddCmd() *cobra.Command {
 			defer db.Close()
 
 			input := model.CreateOrgInput{
-				Name:     args[0],
-				Domain:   nilIfEmpty(domain),
-				Industry: nilIfEmpty(industry),
-				Notes:    nilIfEmpty(notes),
+				Name:      args[0],
+				Domain:    nilIfEmpty(domain),
+				Industry:  nilIfEmpty(industry),
+				Notes:     nilIfEmpty(notes),
+				GitHubURL: nilIfEmpty(githubURL),
 			}
 
 			r := repo.NewOrgRepo(db)
@@ -99,6 +103,7 @@ func orgAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&domain, "domain", "", "domain name")
 	cmd.Flags().StringVar(&industry, "industry", "", "industry")
 	cmd.Flags().StringVar(&notes, "notes", "", "notes")
+	cmd.Flags().StringVar(&githubURL, "github-url", "", "GitHub org URL (unique dedup key)")
 
 	return cmd
 }
@@ -176,7 +181,7 @@ func orgShowCmd() *cobra.Command {
 }
 
 func orgEditCmd() *cobra.Command {
-	var name, domain, industry, notes string
+	var name, domain, industry, notes, githubURL string
 
 	cmd := &cobra.Command{
 		Use:   "edit <id>",
@@ -207,6 +212,12 @@ func orgEditCmd() *cobra.Command {
 			if cmd.Flags().Changed("notes") {
 				input.Notes = &notes
 			}
+			if cmd.Flags().Changed("github-url") {
+				// nilIfEmpty (matching `add`): an empty value is treated as "unset",
+				// never written as "" — a non-NULL empty string would collide on the
+				// partial unique index.
+				input.GitHubURL = nilIfEmpty(githubURL)
+			}
 
 			r := repo.NewOrgRepo(db)
 			org, err := r.Update(cmd.Context(), id, input)
@@ -223,6 +234,7 @@ func orgEditCmd() *cobra.Command {
 	cmd.Flags().StringVar(&domain, "domain", "", "domain name")
 	cmd.Flags().StringVar(&industry, "industry", "", "industry")
 	cmd.Flags().StringVar(&notes, "notes", "", "notes")
+	cmd.Flags().StringVar(&githubURL, "github-url", "", "GitHub org URL (unique dedup key)")
 
 	return cmd
 }
