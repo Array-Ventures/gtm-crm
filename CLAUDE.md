@@ -4,6 +4,18 @@
 
 `crm` is a local-first personal CRM for the terminal. Go, SQLite (`modernc.org/sqlite`), Cobra CLI, built-in MCP server. Distributed as a single static binary for macOS, Linux, and Windows. See `README.md` for full product spec and `overview.md` for the technology-agnostic product vision.
 
+## What this fork adds (gtm-crm vs upstream)
+
+This is an **owned fork** of `jdanielnd/crm-cli` (MIT) as `github.com/Array-Ventures/gtm-crm` (public — so a plugin can install the binary with no GitHub login). The `upstream` remote points at the original for cherry-picks. It is the **persistence backbone for a GTM skill package**; the signal *scanners* and GTM strategy live in a separate repo (`gtm-plugin`), which downloads this binary from the GitHub release. Additions beyond upstream (each its own migration — the fork is owned, so extend with new migrations, never edit old ones):
+
+- **`signal` entity** (migration 002): a go-to-market signal with free-text `signal_type`, optionally linked to a person/org/deal. CLI `signal add/list/show/edit/delete`, repo, and MCP tools.
+- **`source_url` dedup** (003): partial unique index `WHERE archived = 0 AND source_url IS NOT NULL` + an **idempotent `SignalRepo.Create`** (atomic `INSERT … ON CONFLICT(source_url) … DO NOTHING RETURNING id` with a same-tx `SELECT` fallback). This is what lets scanners re-run without duplicating.
+- **`github_url` natural key** on `organizations` AND `people` (004): same partial-unique-index + idempotent-`Create` pattern, keyed on the globally-unique GitHub URL. The dedup identity for scanner-sourced orgs/people; the display name stays editable (`org edit --name`).
+- **MCP↔CLI parity** (33 tools): full create/update/get/delete/list over org/deal/task/signal via MCP, plus `github_url` on person create/update.
+- Smaller: `person edit --summary`, org-linking on signals.
+
+**The idempotent natural-key pattern** (`SignalRepo.Create` / `OrgRepo.Create` / `PersonRepo.Create`) is the template for any new scanner-facing dedup key — copy it, don't reinvent. Releases are cut by goreleaser on a `v*` tag (binaries on the GitHub release; the plugin downloads them); latest is `v0.1.3`.
+
 ## Quick Reference
 
 - **Language:** Go 1.23+
