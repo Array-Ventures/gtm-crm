@@ -276,6 +276,22 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 		signalUpdateHandler(sr),
 	)
 
+	s.AddTool(
+		gomcp.NewTool("crm_signal_get",
+			gomcp.WithDescription("Get full details for a signal by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Signal ID")),
+		),
+		signalGetHandler(sr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_signal_delete",
+			gomcp.WithDescription("Delete (archive) a signal by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Signal ID")),
+		),
+		signalDeleteHandler(sr),
+	)
+
 	// Tag tools
 	s.AddTool(
 		gomcp.NewTool("crm_tag_apply",
@@ -960,6 +976,34 @@ func signalUpdateHandler(sr *repo.SignalRepo) server.ToolHandlerFunc {
 			return mcpError(err)
 		}
 		return jsonResult(signal)
+	}
+}
+
+func signalGetHandler(sr *repo.SignalRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		signal, err := sr.FindByID(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(signal)
+	}
+}
+
+func signalDeleteHandler(sr *repo.SignalRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		err := sr.Archive(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return gomcp.NewToolResultText(fmt.Sprintf("Signal #%d deleted", id)), nil
 	}
 }
 
