@@ -106,6 +106,40 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 		orgGetHandler(or),
 	)
 
+	s.AddTool(
+		gomcp.NewTool("crm_org_create",
+			gomcp.WithDescription("Create a new organization"),
+			gomcp.WithString("name", gomcp.Required(), gomcp.Description("Organization name")),
+			gomcp.WithString("domain", gomcp.Description("Website domain")),
+			gomcp.WithString("industry", gomcp.Description("Industry")),
+			gomcp.WithString("notes", gomcp.Description("Notes")),
+			gomcp.WithString("github_url", gomcp.Description("GitHub organization URL")),
+		),
+		orgCreateHandler(or),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_org_update",
+			gomcp.WithDescription("Update organization fields"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Organization ID")),
+			gomcp.WithString("name", gomcp.Description("Organization name")),
+			gomcp.WithString("domain", gomcp.Description("Website domain")),
+			gomcp.WithString("industry", gomcp.Description("Industry")),
+			gomcp.WithString("notes", gomcp.Description("Notes")),
+			gomcp.WithString("summary", gomcp.Description("AI-maintained summary")),
+			gomcp.WithString("github_url", gomcp.Description("GitHub organization URL")),
+		),
+		orgUpdateHandler(or),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_org_delete",
+			gomcp.WithDescription("Delete (archive) an organization by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Organization ID")),
+		),
+		orgDeleteHandler(or),
+	)
+
 	// Interaction tools
 	s.AddTool(
 		gomcp.NewTool("crm_interaction_log",
@@ -483,6 +517,73 @@ func orgGetHandler(or *repo.OrgRepo) server.ToolHandlerFunc {
 			return mcpError(err)
 		}
 		return jsonResult(org)
+	}
+}
+
+func orgCreateHandler(or *repo.OrgRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		input := model.CreateOrgInput{
+			Name:      req.GetString("name", ""),
+			Domain:    strPtr(req.GetString("domain", "")),
+			Industry:  strPtr(req.GetString("industry", "")),
+			Notes:     strPtr(req.GetString("notes", "")),
+			GitHubURL: strPtr(req.GetString("github_url", "")),
+		}
+		org, err := or.Create(ctx, input)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(org)
+	}
+}
+
+func orgUpdateHandler(or *repo.OrgRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		args := req.GetArguments()
+		input := model.UpdateOrgInput{}
+
+		if s, ok := argString(args, "name"); ok {
+			input.Name = &s
+		}
+		if s, ok := argString(args, "domain"); ok {
+			input.Domain = &s
+		}
+		if s, ok := argString(args, "industry"); ok {
+			input.Industry = &s
+		}
+		if s, ok := argString(args, "notes"); ok {
+			input.Notes = &s
+		}
+		if s, ok := argString(args, "summary"); ok {
+			input.Summary = &s
+		}
+		if s, ok := argString(args, "github_url"); ok {
+			input.GitHubURL = &s
+		}
+
+		org, err := or.Update(ctx, id, input)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(org)
+	}
+}
+
+func orgDeleteHandler(or *repo.OrgRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		err := or.Archive(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return gomcp.NewToolResultText(fmt.Sprintf("Organization #%d deleted", id)), nil
 	}
 }
 
