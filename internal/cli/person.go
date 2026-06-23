@@ -260,7 +260,10 @@ func personEditCmd() *cobra.Command {
 				input.OrgID = &orgID
 			}
 			if cmd.Flags().Changed("github-url") {
-				input.GitHubURL = &githubURL
+				// nilIfEmpty (matching `add`): an empty value is treated as "unset",
+				// never written as "" — a non-NULL empty string would collide on the
+				// partial unique index.
+				input.GitHubURL = nilIfEmpty(githubURL)
 			}
 
 			r := repo.NewPersonRepo(db)

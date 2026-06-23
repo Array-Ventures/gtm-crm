@@ -124,3 +124,16 @@ func TestOrgAddGitHubURLDedups(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(list), &rows))
 	assert.Len(t, rows, 1, "no duplicate org")
 }
+
+func TestOrgEditEmptyGitHubURLNoCollision(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+	crm(t, dbPath, "org", "add", "Acme", "-f", "json") // id 1
+	crm(t, dbPath, "org", "add", "Beta", "-f", "json") // id 2
+
+	// An empty --github-url must be treated as "unset" (no-op), never written as
+	// a non-NULL "" that would collide on the partial unique index.
+	_, _, c1 := crm(t, dbPath, "org", "edit", "1", "--github-url", "")
+	_, _, c2 := crm(t, dbPath, "org", "edit", "2", "--github-url", "")
+	assert.Equal(t, 0, c1)
+	assert.Equal(t, 0, c2, "second empty --github-url edit must not collide")
+}
