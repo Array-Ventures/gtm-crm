@@ -266,6 +266,44 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 		taskListHandler(tr),
 	)
 
+	s.AddTool(
+		gomcp.NewTool("crm_task_get",
+			gomcp.WithDescription("Get full details for a task by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Task ID")),
+		),
+		taskGetHandler(tr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_task_update",
+			gomcp.WithDescription("Update a task (title, due date, priority, etc.)"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Task ID")),
+			gomcp.WithString("title", gomcp.Description("Task title")),
+			gomcp.WithString("description", gomcp.Description("Description")),
+			gomcp.WithNumber("person_id", gomcp.Description("Associated person ID")),
+			gomcp.WithNumber("deal_id", gomcp.Description("Associated deal ID")),
+			gomcp.WithString("due", gomcp.Description("Due date (ISO 8601)")),
+			gomcp.WithString("priority", gomcp.Description("Priority: low, medium, high")),
+		),
+		taskUpdateHandler(tr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_task_complete",
+			gomcp.WithDescription("Mark a task as completed"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Task ID")),
+		),
+		taskCompleteHandler(tr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_task_delete",
+			gomcp.WithDescription("Delete (archive) a task by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Task ID")),
+		),
+		taskDeleteHandler(tr),
+	)
+
 	// Signal tools
 	s.AddTool(
 		gomcp.NewTool("crm_signal_create",
@@ -973,6 +1011,84 @@ func taskListHandler(tr *repo.TaskRepo) server.ToolHandlerFunc {
 			return mcpError(err)
 		}
 		return jsonResult(tasks)
+	}
+}
+
+func taskGetHandler(tr *repo.TaskRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		task, err := tr.FindByID(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(task)
+	}
+}
+
+func taskUpdateHandler(tr *repo.TaskRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		args := req.GetArguments()
+		input := model.UpdateTaskInput{}
+
+		if s, ok := argString(args, "title"); ok {
+			input.Title = &s
+		}
+		if s, ok := argString(args, "description"); ok {
+			input.Description = &s
+		}
+		if pid, ok := argInt64(args, "person_id"); ok {
+			input.PersonID = &pid
+		}
+		if did, ok := argInt64(args, "deal_id"); ok {
+			input.DealID = &did
+		}
+		if s, ok := argString(args, "due"); ok {
+			input.DueAt = &s
+		}
+		if s, ok := argString(args, "priority"); ok {
+			input.Priority = &s
+		}
+
+		task, err := tr.Update(ctx, id, input)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(task)
+	}
+}
+
+func taskCompleteHandler(tr *repo.TaskRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		task, err := tr.Complete(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(task)
+	}
+}
+
+func taskDeleteHandler(tr *repo.TaskRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		err := tr.Archive(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return gomcp.NewToolResultText(fmt.Sprintf("Task #%d deleted", id)), nil
 	}
 }
 
