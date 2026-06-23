@@ -78,8 +78,8 @@ func toolNames(tools map[string]*server.ServerTool) []string {
 func TestToolCount(t *testing.T) {
 	s := setupTestServer(t)
 	tools := s.ListTools()
-	// Should have all registered tools
-	assert.GreaterOrEqual(t, len(tools), 15, "expected at least 15 tools registered")
+	// Exact count so an accidental tool deletion is caught. Bump this when adding a tool.
+	assert.Equal(t, 33, len(tools), "unexpected number of registered MCP tools")
 }
 
 func TestPersonCreateViaMessage(t *testing.T) {
@@ -268,4 +268,97 @@ func TestPersonCreateWithGitHubURL(t *testing.T) {
 	require.False(t, isErr, "crm_person_create with github_url should not return an error")
 	assert.Equal(t, "Alice", person["first_name"])
 	assert.Equal(t, "https://github.com/alice", person["github_url"])
+}
+
+// toolResultText reads a tool result's text + isError without JSON-decoding the
+// content — for tools that return a plain confirmation (e.g. deletes) rather than
+// a JSON entity, where parseToolResult's json.Unmarshal would fail.
+func toolResultText(t *testing.T, resp gomcp.JSONRPCMessage) (string, bool) {
+	t.Helper()
+	raw, err := json.Marshal(resp)
+	require.NoError(t, err)
+	var envelope struct {
+		Result struct {
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+			IsError bool `json:"isError"`
+		} `json:"result"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &envelope))
+	text := ""
+	if len(envelope.Result.Content) > 0 {
+		text = envelope.Result.Content[0].Text
+	}
+	return text, envelope.Result.IsError
+}
+
+// TestDeleteRemovesEntity verifies each new delete tool archives the record (so a
+// subsequent get returns a not-found error) and returns a text confirmation.
+func TestDeleteRemovesEntity(t *testing.T) {
+	cases := []struct {
+		name       string
+		createTool string
+		getTool    string
+		deleteTool string
+		createArgs map[string]any
+	}{
+		{"org", "crm_org_create", "crm_org_get", "crm_org_delete", map[string]any{"name": "Del Org"}},
+		{"signal", "crm_signal_create", "crm_signal_get", "crm_signal_delete", map[string]any{"signal_type": "github"}},
+		{"deal", "crm_deal_create", "crm_deal_get", "crm_deal_delete", map[string]any{"title": "Del Deal"}},
+		{"task", "crm_task_create", "crm_task_get", "crm_task_delete", map[string]any{"title": "Del Task"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := setupTestServer(t)
+
+			created, isErr := parseToolResult(t, callTool(t, s, tc.createTool, tc.createArgs))
+			require.False(t, isErr, "%s create should not error", tc.name)
+			id, ok := created["id"].(float64)
+			require.True(t, ok, "%s id should be a number", tc.name)
+
+			text, isErr := toolResultText(t, callTool(t, s, tc.deleteTool, map[string]any{"id": id}))
+			require.False(t, isErr, "%s delete should not error", tc.name)
+			assert.Contains(t, text, "deleted", "%s delete should confirm", tc.name)
+
+			_, isErr = parseToolResult(t, callTool(t, s, tc.getTool, map[string]any{"id": id}))
+			assert.True(t, isErr, "%s get after delete should be a not-found error", tc.name)
+		})
+	}
+}
+
+// TestTaskUpdate exercises crm_task_update patch semantics.
+func TestTaskUpdate(t *testing.T) {
+	s := setupTestServer(t)
+
+	created, isErr := parseToolResult(t, callTool(t, s, "crm_task_create", map[string]any{"title": "Follow up"}))
+	require.False(t, isErr, "crm_task_create should not error")
+	id, ok := created["id"].(float64)
+	require.True(t, ok, "task id should be a number")
+
+	updated, isErr := parseToolResult(t, callTool(t, s, "crm_task_update", map[string]any{
+		"id":       id,
+		"priority": "high",
+	}))
+	require.False(t, isErr, "crm_task_update should not error")
+	assert.Equal(t, "high", updated["priority"], "priority should be patched")
+	assert.Equal(t, "Follow up", updated["title"], "untouched fields should be preserved")
+}
+
+// TestTaskCompleteThenConflict verifies crm_task_complete succeeds once and that a
+// second call surfaces the repo's conflict error through the MCP layer.
+func TestTaskCompleteThenConflict(t *testing.T) {
+	s := setupTestServer(t)
+
+	created, isErr := parseToolResult(t, callTool(t, s, "crm_task_create", map[string]any{"title": "Ship it"}))
+	require.False(t, isErr, "crm_task_create should not error")
+	id, ok := created["id"].(float64)
+	require.True(t, ok, "task id should be a number")
+
+	done, isErr := parseToolResult(t, callTool(t, s, "crm_task_complete", map[string]any{"id": id}))
+	require.False(t, isErr, "first crm_task_complete should not error")
+	assert.Equal(t, true, done["completed"], "task should be marked completed")
+
+	_, isErr = parseToolResult(t, callTool(t, s, "crm_task_complete", map[string]any{"id": id}))
+	assert.True(t, isErr, "completing an already-completed task should surface a conflict error")
 }
