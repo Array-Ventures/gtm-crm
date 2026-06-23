@@ -59,6 +59,7 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 			gomcp.WithString("company", gomcp.Description("Company name")),
 			gomcp.WithString("location", gomcp.Description("Location")),
 			gomcp.WithString("notes", gomcp.Description("Notes")),
+			gomcp.WithString("github_url", gomcp.Description("GitHub profile URL (unique dedup key)")),
 		),
 		personCreateHandler(pr),
 	)
@@ -76,6 +77,7 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 			gomcp.WithString("location", gomcp.Description("Location")),
 			gomcp.WithString("notes", gomcp.Description("Notes")),
 			gomcp.WithString("summary", gomcp.Description("AI-maintained summary/dossier")),
+			gomcp.WithString("github_url", gomcp.Description("GitHub profile URL (unique dedup key)")),
 		),
 		personUpdateHandler(pr),
 	)
@@ -424,6 +426,7 @@ func personCreateHandler(pr *repo.PersonRepo) server.ToolHandlerFunc {
 			Company:   strPtr(req.GetString("company", "")),
 			Location:  strPtr(req.GetString("location", "")),
 			Notes:     strPtr(req.GetString("notes", "")),
+			GitHubURL: strPtr(req.GetString("github_url", "")),
 		}
 		person, err := pr.Create(ctx, input)
 		if err != nil {
@@ -468,6 +471,9 @@ func personUpdateHandler(pr *repo.PersonRepo) server.ToolHandlerFunc {
 		}
 		if s, ok := argString(args, "summary"); ok {
 			input.Summary = &s
+		}
+		if s, ok := argString(args, "github_url"); ok {
+			input.GitHubURL = &s
 		}
 
 		person, err := pr.Update(ctx, id, input)
