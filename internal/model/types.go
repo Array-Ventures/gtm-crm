@@ -14,6 +14,7 @@ type Person struct {
 	Notes     *string `json:"notes"`
 	Summary   *string `json:"summary"`
 	OrgID     *int64  `json:"org_id"`
+	GitHubURL *string `json:"github_url"`
 	CreatedAt string  `json:"created_at"`
 	UpdatedAt string  `json:"updated_at"`
 }
@@ -29,6 +30,7 @@ type CreatePersonInput struct {
 	Location  *string
 	Notes     *string
 	OrgID     *int64
+	GitHubURL *string
 }
 
 // UpdatePersonInput holds optional fields for updating a person.
@@ -44,6 +46,7 @@ type UpdatePersonInput struct {
 	Notes     *string
 	Summary   *string
 	OrgID     *int64
+	GitHubURL *string
 }
 
 // PersonFilters holds optional filters for listing people.
@@ -62,25 +65,28 @@ type Organization struct {
 	Industry  *string `json:"industry"`
 	Notes     *string `json:"notes"`
 	Summary   *string `json:"summary"`
+	GitHubURL *string `json:"github_url"`
 	CreatedAt string  `json:"created_at"`
 	UpdatedAt string  `json:"updated_at"`
 }
 
 // CreateOrgInput holds fields for creating an organization.
 type CreateOrgInput struct {
-	Name     string
-	Domain   *string
-	Industry *string
-	Notes    *string
+	Name      string
+	Domain    *string
+	Industry  *string
+	Notes     *string
+	GitHubURL *string
 }
 
 // UpdateOrgInput holds optional fields for updating an organization.
 type UpdateOrgInput struct {
-	Name     *string
-	Domain   *string
-	Industry *string
-	Notes    *string
-	Summary  *string
+	Name      *string
+	Domain    *string
+	Industry  *string
+	Notes     *string
+	Summary   *string
+	GitHubURL *string
 }
 
 // Interaction represents an activity log entry.

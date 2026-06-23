@@ -21,7 +21,7 @@ func NewPersonRepo(db *sql.DB) *PersonRepo {
 	return &PersonRepo{db: db}
 }
 
-var personColumns = "id, uuid, first_name, last_name, email, phone, title, company, location, notes, summary, org_id, created_at, updated_at"
+var personColumns = "id, uuid, first_name, last_name, email, phone, title, company, location, notes, summary, org_id, github_url, created_at, updated_at"
 
 func scanPerson(row interface{ Scan(...any) error }) (*model.Person, error) {
 	var p model.Person
@@ -29,7 +29,7 @@ func scanPerson(row interface{ Scan(...any) error }) (*model.Person, error) {
 		&p.ID, &p.UUID, &p.FirstName, &p.LastName,
 		&p.Email, &p.Phone, &p.Title, &p.Company,
 		&p.Location, &p.Notes, &p.Summary, &p.OrgID,
-		&p.CreatedAt, &p.UpdatedAt,
+		&p.GitHubURL, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -37,19 +37,55 @@ func scanPerson(row interface{ Scan(...any) error }) (*model.Person, error) {
 	return &p, nil
 }
 
-// Create inserts a new person after checking for duplicates.
+// Create inserts a new person. When GitHubURL is set, the github_url is the dedup
+// key: it's idempotent (a second Create with the same live github_url returns the
+// existing person) and bypasses the name/email duplicate check, since github_url is
+// the authoritative identity. Without a github_url, the legacy name/email duplicate
+// check applies.
 func (r *PersonRepo) Create(ctx context.Context, input model.CreatePersonInput) (*model.Person, error) {
+	id := uuid.New().String()
+
+	if input.GitHubURL != nil && strings.TrimSpace(*input.GitHubURL) != "" {
+		tx, err := r.db.BeginTx(ctx, nil)
+		if err != nil {
+			return nil, fmt.Errorf("begin upsert person: %w", err)
+		}
+		defer func() { _ = tx.Rollback() }()
+
+		var personID int64
+		err = tx.QueryRowContext(ctx,
+			`INSERT INTO people (uuid, first_name, last_name, email, phone, title, company, location, notes, org_id, github_url)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(github_url) WHERE archived = 0 AND github_url IS NOT NULL
+			 DO NOTHING
+			 RETURNING id`,
+			id, input.FirstName, input.LastName, input.Email, input.Phone,
+			input.Title, input.Company, input.Location, input.Notes, input.OrgID, input.GitHubURL,
+		).Scan(&personID)
+		if errors.Is(err, sql.ErrNoRows) {
+			err = tx.QueryRowContext(ctx,
+				`SELECT id FROM people WHERE github_url = ? AND archived = 0`,
+				*input.GitHubURL).Scan(&personID)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("upsert person: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit upsert person: %w", err)
+		}
+		return r.FindByID(ctx, personID)
+	}
+
 	// Check for duplicate: same first_name + last_name, or same email
 	if err := r.checkDuplicate(ctx, input); err != nil {
 		return nil, err
 	}
 
-	id := uuid.New().String()
 	result, err := r.db.ExecContext(ctx,
-		`INSERT INTO people (uuid, first_name, last_name, email, phone, title, company, location, notes, org_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO people (uuid, first_name, last_name, email, phone, title, company, location, notes, org_id, github_url)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, input.FirstName, input.LastName, input.Email, input.Phone,
-		input.Title, input.Company, input.Location, input.Notes, input.OrgID,
+		input.Title, input.Company, input.Location, input.Notes, input.OrgID, input.GitHubURL,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("insert person: %w", err)
@@ -201,6 +237,10 @@ func (r *PersonRepo) Update(ctx context.Context, id int64, input model.UpdatePer
 	if input.OrgID != nil {
 		setClauses = append(setClauses, "org_id = ?")
 		args = append(args, *input.OrgID)
+	}
+	if input.GitHubURL != nil {
+		setClauses = append(setClauses, "github_url = ?")
+		args = append(args, *input.GitHubURL)
 	}
 
 	if len(setClauses) == 0 {

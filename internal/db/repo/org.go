@@ -21,13 +21,13 @@ func NewOrgRepo(db *sql.DB) *OrgRepo {
 	return &OrgRepo{db: db}
 }
 
-var orgColumns = "id, uuid, name, domain, industry, notes, summary, created_at, updated_at"
+var orgColumns = "id, uuid, name, domain, industry, notes, summary, github_url, created_at, updated_at"
 
 func scanOrg(row interface{ Scan(...any) error }) (*model.Organization, error) {
 	var o model.Organization
 	err := row.Scan(
 		&o.ID, &o.UUID, &o.Name, &o.Domain, &o.Industry,
-		&o.Notes, &o.Summary, &o.CreatedAt, &o.UpdatedAt,
+		&o.Notes, &o.Summary, &o.GitHubURL, &o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -35,13 +35,47 @@ func scanOrg(row interface{ Scan(...any) error }) (*model.Organization, error) {
 	return &o, nil
 }
 
-// Create inserts a new organization.
+// Create inserts a new organization. When GitHubURL is set it is idempotent: a
+// second Create with the same live github_url returns the existing org instead of
+// inserting a duplicate (enforced by the ux_organizations_github_url partial index).
 func (r *OrgRepo) Create(ctx context.Context, input model.CreateOrgInput) (*model.Organization, error) {
 	id := uuid.New().String()
+
+	if input.GitHubURL != nil && strings.TrimSpace(*input.GitHubURL) != "" {
+		tx, err := r.db.BeginTx(ctx, nil)
+		if err != nil {
+			return nil, fmt.Errorf("begin upsert organization: %w", err)
+		}
+		defer func() { _ = tx.Rollback() }()
+
+		var orgID int64
+		err = tx.QueryRowContext(ctx,
+			`INSERT INTO organizations (uuid, name, domain, industry, notes, github_url)
+			 VALUES (?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(github_url) WHERE archived = 0 AND github_url IS NOT NULL
+			 DO NOTHING
+			 RETURNING id`,
+			id, input.Name, input.Domain, input.Industry, input.Notes, input.GitHubURL,
+		).Scan(&orgID)
+		if errors.Is(err, sql.ErrNoRows) {
+			// Conflict: a live org with this github_url already exists.
+			err = tx.QueryRowContext(ctx,
+				`SELECT id FROM organizations WHERE github_url = ? AND archived = 0`,
+				*input.GitHubURL).Scan(&orgID)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("upsert organization: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit upsert organization: %w", err)
+		}
+		return r.FindByID(ctx, orgID)
+	}
+
 	result, err := r.db.ExecContext(ctx,
-		`INSERT INTO organizations (uuid, name, domain, industry, notes)
-		 VALUES (?, ?, ?, ?, ?)`,
-		id, input.Name, input.Domain, input.Industry, input.Notes,
+		`INSERT INTO organizations (uuid, name, domain, industry, notes, github_url)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		id, input.Name, input.Domain, input.Industry, input.Notes, input.GitHubURL,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("insert organization: %w", err)
@@ -122,6 +156,10 @@ func (r *OrgRepo) Update(ctx context.Context, id int64, input model.UpdateOrgInp
 	if input.Summary != nil {
 		setClauses = append(setClauses, "summary = ?")
 		args = append(args, *input.Summary)
+	}
+	if input.GitHubURL != nil {
+		setClauses = append(setClauses, "github_url = ?")
+		args = append(args, *input.GitHubURL)
 	}
 
 	if len(setClauses) == 0 {

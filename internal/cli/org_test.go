@@ -103,3 +103,24 @@ func TestOrgDelete_NotFound(t *testing.T) {
 	_, _, code := crm(t, dbPath, "org", "delete", "999")
 	assert.Equal(t, 3, code)
 }
+
+func TestOrgAddGitHubURLDedups(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "crm.db")
+	url := "https://github.com/vllm-project"
+
+	out1, _, code1 := crm(t, dbPath, "org", "add", "vllm-project", "--github-url", url, "-f", "json")
+	assert.Equal(t, 0, code1)
+	out2, _, code2 := crm(t, dbPath, "org", "add", "vllm-project", "--github-url", url, "-f", "json")
+	assert.Equal(t, 0, code2)
+
+	var a, b []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out1), &a))
+	require.NoError(t, json.Unmarshal([]byte(out2), &b))
+	assert.Equal(t, url, a[0]["github_url"])
+	assert.Equal(t, a[0]["id"], b[0]["id"], "same github_url returns the same org id")
+
+	list, _, _ := crm(t, dbPath, "org", "list", "-f", "json")
+	var rows []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(list), &rows))
+	assert.Len(t, rows, 1, "no duplicate org")
+}
