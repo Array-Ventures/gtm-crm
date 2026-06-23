@@ -213,6 +213,34 @@ func NewServer(db *sql.DB, version string) *server.MCPServer {
 		dealUpdateHandler(dr),
 	)
 
+	s.AddTool(
+		gomcp.NewTool("crm_deal_list",
+			gomcp.WithDescription("List deals with optional filters"),
+			gomcp.WithString("stage", gomcp.Description("Filter by stage: lead, prospect, proposal, negotiation, won, lost")),
+			gomcp.WithNumber("person_id", gomcp.Description("Filter by person ID")),
+			gomcp.WithNumber("org_id", gomcp.Description("Filter by organization ID")),
+			gomcp.WithBoolean("open", gomcp.Description("When true, exclude won/lost deals")),
+			gomcp.WithNumber("limit", gomcp.Description("Max results")),
+		),
+		dealListHandler(dr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_deal_get",
+			gomcp.WithDescription("Get full details for a deal by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Deal ID")),
+		),
+		dealGetHandler(dr),
+	)
+
+	s.AddTool(
+		gomcp.NewTool("crm_deal_delete",
+			gomcp.WithDescription("Delete (archive) a deal by ID"),
+			gomcp.WithNumber("id", gomcp.Required(), gomcp.Description("Deal ID")),
+		),
+		dealDeleteHandler(dr),
+	)
+
 	// Task tools
 	s.AddTool(
 		gomcp.NewTool("crm_task_create",
@@ -844,6 +872,60 @@ func dealUpdateHandler(dr *repo.DealRepo) server.ToolHandlerFunc {
 			return mcpError(err)
 		}
 		return jsonResult(deal)
+	}
+}
+
+func dealListHandler(dr *repo.DealRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		args := req.GetArguments()
+		filters := model.DealFilters{
+			Limit:         req.GetInt("limit", 0),
+			ExcludeClosed: req.GetBool("open", false),
+		}
+
+		if s, ok := argString(args, "stage"); ok {
+			filters.Stage = &s
+		}
+		if pid, ok := argInt64(args, "person_id"); ok {
+			filters.PersonID = &pid
+		}
+		if oid, ok := argInt64(args, "org_id"); ok {
+			filters.OrgID = &oid
+		}
+
+		deals, err := dr.FindAll(ctx, filters)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(deals)
+	}
+}
+
+func dealGetHandler(dr *repo.DealRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		deal, err := dr.FindByID(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return jsonResult(deal)
+	}
+}
+
+func dealDeleteHandler(dr *repo.DealRepo) server.ToolHandlerFunc {
+	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		id, errResult := requireID(req, "id")
+		if errResult != nil {
+			return errResult, nil
+		}
+		err := dr.Archive(ctx, id)
+		if err != nil {
+			return mcpError(err)
+		}
+		return gomcp.NewToolResultText(fmt.Sprintf("Deal #%d deleted", id)), nil
 	}
 }
 
